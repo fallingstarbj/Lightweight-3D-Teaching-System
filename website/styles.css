@@ -120,14 +120,27 @@ a:hover {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
-  box-shadow: 0 8px 28px rgba(110, 168, 254, 0.28);
+  background: linear-gradient(135deg, #3b7fd9, #6d4fc9);
+  color: #ffffff;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 28px rgba(59, 127, 217, 0.32);
 }
 
 .btn-primary:hover {
-  color: #fff;
-  box-shadow: 0 12px 36px rgba(110, 168, 254, 0.38);
+  color: #ffffff;
+  background: linear-gradient(135deg, #4588e3, #7a5dd4);
+  box-shadow: 0 12px 36px rgba(59, 127, 217, 0.42);
+}
+
+/* 导航内主按钮：覆盖 .nav a 的次要文字色，确保白字可读 */
+.nav a.btn-primary {
+  color: #ffffff;
+}
+
+.nav a.btn-primary:hover {
+  color: #ffffff;
 }
 
 .btn-ghost {
