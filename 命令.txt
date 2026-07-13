@@ -1,0 +1,4 @@
+npm run prepare:library:models    从本机AppData导出已分享模型
+npm run prepare:library:appdata    导出全部已分享资产（含贴图等） 
+npm run prepare:library   从 resources/bundled-assets/ 生成内置库
+npm run pack    准备内置库 + 构建 + 打便携包

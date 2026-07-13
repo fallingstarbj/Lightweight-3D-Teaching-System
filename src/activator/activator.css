@@ -1,0 +1,234 @@
+.activator-app {
+  height: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-primary);
+}
+
+.activator-card {
+  width: 100%;
+  max-width: 440px;
+  flex-shrink: 0;
+  margin-bottom: 24px;
+  padding: 28px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.activator-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.activator-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.activator-header p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.activator-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.activator-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+
+.activator-inline-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.activator-inline-row .activator-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.activator-field {
+  margin-bottom: 16px;
+}
+
+.activator-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.activator-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  user-select: text;
+}
+
+.activator-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.activator-type-row {
+  display: flex;
+  gap: 8px;
+}
+
+.activator-type-btn {
+  flex: 1;
+  padding: 10px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  transition: all var(--transition);
+}
+
+.activator-type-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.activator-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activator-preset-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.activator-preset-btn:hover {
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+.activator-result {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-all;
+  user-select: text;
+  resize: vertical;
+}
+
+.activator-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.activator-actions .toolbar-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.activator-error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.activator-meta {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.activator-asset-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activator-asset-toolbar .toolbar-btn {
+  flex: 0 1 auto;
+}
+
+.activator-asset-list {
+  margin-top: 8px;
+  padding: 0;
+  list-style: none;
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+}
+
+.activator-asset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+
+.activator-asset-item:last-child {
+  border-bottom: none;
+}
+
+.activator-asset-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.activator-asset-item.selected {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+.activator-asset-item input[type='checkbox'] {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.activator-asset-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

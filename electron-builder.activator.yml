@@ -1,0 +1,20 @@
+appId: com.3dassetmanager.packbuilder
+productName: 轻量化三维示教系统-数据包制作工具
+copyright: Copyright © 2026
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+asar: true
+extraMetadata:
+  main: ./out/main/activatorEntry.js
+  description: 轻量化三维示教系统 数据包制作工具
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-Portable.${ext}
+portable:
+  artifactName: ${productName}-${version}-Portable.${ext}

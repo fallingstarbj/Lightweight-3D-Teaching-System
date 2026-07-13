@@ -1,0 +1,67 @@
+{
+  "name": "3d-asset-manager",
+  "version": "1.0.0",
+  "description": "轻量化三维示教系统 - 浏览、预览与教学标注",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "pack": "npm run build && electron-builder --win portable --x64",
+    "pack:builder": "npm run build && electron-builder --config electron-builder.activator.yml --win portable --x64",
+    "pack:activator": "npm run pack:builder",
+    "pack:all": "npm run build && electron-builder --win portable --x64 && electron-builder --config electron-builder.activator.yml --win portable --x64",
+    "pack:portable": "npm run pack",
+    "prepare:library": "node scripts/prepare-bundled-library.mjs",
+    "prepare:library:appdata": "node scripts/prepare-bundled-library.mjs --from-appdata",
+    "prepare:library:models": "node scripts/prepare-bundled-library.mjs --from-appdata --models-only",
+    "activator": "electron-vite dev -- --activator",
+    "builder": "electron-vite dev -- --activator",
+    "activator:run": "electron . --activator",
+    "license:generate": "node scripts/generate-license.mjs",
+    "postinstall": "node scripts/ensure-electron.js && electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.170.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "com.3dassetmanager.app",
+    "productName": "轻量化三维示教系统",
+    "copyright": "Copyright © 2026",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-Portable.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.${ext}"
+    }
+  }
+}

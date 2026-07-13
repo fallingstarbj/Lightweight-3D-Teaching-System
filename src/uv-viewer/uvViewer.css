@@ -1,0 +1,97 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: #0f0f12;
+  color: #e8eaed;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.uv-viewer-app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.uv-viewer-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.uv-viewer-header-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.uv-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.uv-viewer-tool-btn {
+  min-width: 32px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8eaed;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.uv-viewer-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.uv-viewer-zoom-label {
+  min-width: 48px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.uv-viewer-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.uv-viewer-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.uv-viewer-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.uv-viewer-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.uv-viewer-canvas-wrap:active {
+  cursor: grabbing;
+}
+
+.uv-viewer-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #14161c;
+}

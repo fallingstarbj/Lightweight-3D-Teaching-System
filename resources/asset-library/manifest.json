@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "39ae31bf-29d9-47e6-91a9-569c2781b994",
+      "name": "桥枕.fbx",
+      "fileName": "39ae31bf-29d9-47e6-91a9-569c2781b994.3dam",
+      "kind": "model",
+      "extension": "fbx",
+      "size": 165728,
+      "shared": true,
+      "createdBy": "admin",
+      "createdAt": 1782954646901,
+      "modifiedTime": 1779763539856.1138
+    },
+    {
+      "id": "59a49f55-dd8f-42dc-92e0-c180d95d72ea",
+      "name": "SKM_JianGui_L_5.fbx",
+      "fileName": "59a49f55-dd8f-42dc-92e0-c180d95d72ea.3dam",
+      "kind": "model",
+      "extension": "fbx",
+      "size": 26686896,
+      "shared": true,
+      "createdBy": "admin",
+      "createdAt": 1782957604629,
+      "modifiedTime": 1782957560525.0112
+    }
+  ]
+}
