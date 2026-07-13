@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="轻量化三维示教系统 — 面向课堂教学的 Windows 桌面应用，支持 3D 模型浏览、结构标注、动画编辑与教学状态管理。" />
+  <meta name="keywords" content="三维示教,3D教学,模型预览,结构标注,教学状态,数据包,Electron,Three.js" />
+  <title>轻量化三维示教系统 | Lightweight 3D Teaching System</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top">
+        <svg class="brand-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <path d="M24 4L8 14v20l16 10 16-10V14L24 4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M24 4v20M8 14l16 10 16-10M24 24v20" stroke="currentColor" stroke-width="1" stroke-opacity="0.35"/>
+        </svg>
+        <span>轻量化三维示教系统</span>
+      </a>
+      <nav class="nav">
+        <a href="#features">功能特性</a>
+        <a href="#workflow">使用流程</a>
+        <a href="#formats">支持格式</a>
+        <a href="#tech">技术栈</a>
+        <a class="btn btn-primary" href="https://gitee.com/fallingst/lightweight-3d-teaching-system" target="_blank" rel="noopener noreferrer">源码仓库</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-bg" aria-hidden="true">
+        <div class="hero-grid"></div>
+        <div class="hero-glow"></div>
+      </div>
+      <div class="container hero-layout">
+        <div class="hero-content reveal">
+          <div class="hero-badge">Windows 桌面应用 · 课堂教学专用</div>
+          <h1>轻量化三维示教系统</h1>
+          <p class="hero-subtitle">Lightweight 3D Teaching System</p>
+          <p class="hero-desc">
+            集教学资源管理、三维模型交互预览、结构标注、部件动画与教学状态切换于一体。
+            支持本地文件夹与离线数据包双模式，让课堂示教更高效、更直观。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#cta">了解产品</a>
+            <a class="btn btn-ghost" href="https://gitee.com/fallingst/lightweight-3d-teaching-system" target="_blank" rel="noopener noreferrer">查看 Gitee 仓库</a>
+          </div>
+          <div class="hero-tags">
+            <span class="tag">3D 模型预览</span>
+            <span class="tag">结构标注</span>
+            <span class="tag">教学状态</span>
+            <span class="tag">数据包分发</span>
+            <span class="tag">材质编辑</span>
+            <span class="tag">离线运行</span>
+          </div>
+        </div>
+
+        <div class="mockup reveal" aria-label="软件界面示意">
+          <div class="mockup-bar">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+            <span class="mockup-title">轻量化三维示教系统</span>
+          </div>
+          <div class="mockup-body">
+            <aside class="mock-sidebar">
+              <div class="mock-tree-item active">
+                <span>📦</span> 数据包
+              </div>
+              <div class="mock-tree-item" style="padding-left: 22px">
+                <span>📁</span> 铁道工程
+              </div>
+              <div class="mock-tree-item" style="padding-left: 34px">
+                <span>📁</span> 轨道构件
+              </div>
+            </aside>
+            <div class="mock-main">
+              <div class="mock-toolbar">
+                <div class="mock-toolbar-left">
+                  <span class="mock-chip accent">导入资产</span>
+                  <span class="mock-chip">新建文件夹</span>
+                </div>
+                <div class="mock-toolbar-right">
+                  <span class="mock-chip">网格</span>
+                  <span class="mock-chip">搜索</span>
+                </div>
+              </div>
+              <div class="mock-grid">
+                <div class="mock-card selected">
+                  <div class="mock-thumb">
+                    <span class="mock-badge">FBX</span>
+                  </div>
+                  <div class="mock-card-meta">
+                    <strong>CRTS3.FBX</strong>
+                    <span>模型 · 20.6 MB</span>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-thumb">
+                    <span class="mock-badge">FBX</span>
+                  </div>
+                  <div class="mock-card-meta">
+                    <strong>轨枕组件</strong>
+                    <span>模型 · 15.8 MB</span>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-thumb">
+                    <span class="mock-badge">PNG</span>
+                  </div>
+                  <div class="mock-card-meta">
+                    <strong>钢轨贴图</strong>
+                    <span>贴图 · 4.2 MB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <aside class="mock-panel">
+              <h4>资产详情</h4>
+              <div class="mock-stat"><span>顶点数</span><strong>128,450</strong></div>
+              <div class="mock-stat"><span>面数</span><strong>42,816</strong></div>
+              <div class="mock-stat"><span>尺寸</span><strong>12.4 m</strong></div>
+              <div class="mock-stat"><span>格式</span><strong>FBX</strong></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="container">
+        <span class="section-label reveal">Features</span>
+        <h2 class="section-title reveal">为课堂教学而生的完整工具链</h2>
+        <p class="section-desc reveal">
+          从资源浏览到三维交互，从标注讲解到状态切换，覆盖课前准备、课堂演示与内容分发的完整流程。
+        </p>
+        <div class="features-grid">
+          <article class="feature-card reveal">
+            <div class="feature-icon">🗂️</div>
+            <h3>双模式资源管理</h3>
+            <p>支持本地文件夹浏览与数据包模式。可安装、激活、导出 <code>.3dam-pack</code> 离线数据包，方便内容方统一分发教学资源。</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon">🎮</div>
+            <h3>交互式 3D 预览</h3>
+            <p>双击模型进入全屏预览，支持旋转、缩放、平移。提供标准视角、炸开、测距、剖面、透明查看等专业示教工具。</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon">📍</div>
+            <h3>结构标注</h3>
+            <p>支持标记点、箭头与图文标注，标注集合可独立管理。标注位置可拖动调整，适合讲解零部件结构与装配关系。</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon">🎬</div>
+            <h3>动画与状态机</h3>
+            <p>FBX 动画片段播放，部件多阶段关键帧动画编辑。教学状态可保存部件位姿、可见性与材质，课堂一键切换讲解步骤。</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon">🎨</div>
+            <h3>材质与 UV 工具</h3>
+            <p>多材质槽位独立编辑，支持基础色与法线贴图。按 <kbd>V</kbd> 打开 UV 查看器，直观展示贴图布局与平铺效果。</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon">📄</div>
+            <h3>关联文档与媒体</h3>
+            <p>数据包模型可关联 PDF 文档，预览时分屏显示三维模型与说明书。同时支持贴图、音频、视频等多媒体资产预览。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="workflow" class="workflow">
+      <div class="container">
+        <span class="section-label reveal">Workflow</span>
+        <h2 class="section-title reveal">从内容制作到课堂演示</h2>
+        <p class="section-desc reveal">
+          内容方使用数据包制作工具打包教学资源，教师安装数据包后即可在课堂中进行三维示教。
+        </p>
+        <div class="workflow-steps">
+          <article class="step-card reveal">
+            <div class="step-num">1</div>
+            <h3>制作数据包</h3>
+            <p>导入模型、贴图与文档，使用制作工具导出初版 <code>.3dam-pack</code> 与激活码。</p>
+          </article>
+          <article class="step-card reveal">
+            <div class="step-num">2</div>
+            <h3>编辑教学内容</h3>
+            <p>在预览中完成标注、动画、教学状态与材质调整，导出含教学数据的完整数据包。</p>
+          </article>
+          <article class="step-card reveal">
+            <div class="step-num">3</div>
+            <h3>安装与激活</h3>
+            <p>教师端安装数据包并输入激活码，模型以加密 <code>.3dam</code> 格式安全存储于本地。</p>
+          </article>
+          <article class="step-card reveal">
+            <div class="step-num">4</div>
+            <h3>课堂三维示教</h3>
+            <p>浏览资产、切换教学状态、配合标注与文档分屏，完成沉浸式结构讲解与演示。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="formats">
+      <div class="container">
+        <span class="section-label reveal">Formats</span>
+        <h2 class="section-title reveal">广泛的格式支持</h2>
+        <p class="section-desc reveal">
+          基于 Three.js 构建强大的模型加载与缩略图渲染能力，自动为模型生成 3D 预览缩略图。
+        </p>
+        <div class="formats-wrap">
+          <div class="format-group reveal">
+            <h3>3D 模型（可预览）</h3>
+            <div class="format-list">
+              <span class="format-pill highlight">.glb</span>
+              <span class="format-pill highlight">.gltf</span>
+              <span class="format-pill highlight">.fbx</span>
+              <span class="format-pill highlight">.obj</span>
+              <span class="format-pill highlight">.stl</span>
+              <span class="format-pill highlight">.3ds</span>
+            </div>
+          </div>
+          <div class="format-group reveal">
+            <h3>贴图 / 图片 / 媒体</h3>
+            <div class="format-list">
+              <span class="format-pill">.jpg</span>
+              <span class="format-pill">.png</span>
+              <span class="format-pill">.psd</span>
+              <span class="format-pill">.webp</span>
+              <span class="format-pill">.tga</span>
+              <span class="format-pill">.mp4</span>
+              <span class="format-pill">.mp3</span>
+              <span class="format-pill">.pdf</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tech">
+      <div class="container">
+        <span class="section-label reveal">Technology</span>
+        <h2 class="section-title reveal">现代技术栈，稳定可靠</h2>
+        <p class="section-desc reveal">
+          采用 Electron 跨平台桌面框架，结合 React 与 TypeScript 构建，三维渲染由 Three.js 驱动。
+        </p>
+        <div class="tech-grid">
+          <div class="tech-item reveal">
+            <strong>Electron</strong>
+            <span>Windows 桌面应用</span>
+          </div>
+          <div class="tech-item reveal">
+            <strong>React</strong>
+            <span>现代化 UI 框架</span>
+          </div>
+          <div class="tech-item reveal">
+            <strong>TypeScript</strong>
+            <span>类型安全开发</span>
+          </div>
+          <div class="tech-item reveal">
+            <strong>Three.js</strong>
+            <span>三维渲染引擎</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta" class="cta">
+      <div class="container">
+        <div class="cta-box reveal">
+          <h2>开启轻量化三维示教</h2>
+          <p>
+            便携版无需安装，双击即可运行。支持 7 天全功能试用，也可通过正式激活码授权使用。
+            源码已开源托管于 Gitee，欢迎查阅与共建。
+          </p>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="https://gitee.com/fallingst/lightweight-3d-teaching-system" target="_blank" rel="noopener noreferrer">访问 Gitee 仓库</a>
+            <a class="btn btn-ghost" href="https://gitee.com/fallingst/lightweight-3d-teaching-system/blob/master/README.md" target="_blank" rel="noopener noreferrer">阅读项目说明</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>© <span id="year"></span> 轻量化三维示教系统 · Lightweight 3D Teaching System</span>
+      <div class="footer-links">
+        <a href="https://gitee.com/fallingst/lightweight-3d-teaching-system" target="_blank" rel="noopener noreferrer">Gitee</a>
+        <a href="#features">功能特性</a>
+        <a href="#workflow">使用流程</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
