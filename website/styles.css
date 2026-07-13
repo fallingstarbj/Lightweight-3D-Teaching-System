@@ -287,6 +287,20 @@ a:hover {
   color: var(--text-muted);
 }
 
+.mockup-screen {
+  background: #0e0f15;
+  line-height: 0;
+}
+
+.mockup-screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  object-position: top center;
+}
+
 .mockup-body {
   display: grid;
   grid-template-columns: 148px 1fr 168px;
@@ -700,6 +714,10 @@ section {
 
   .hero-layout {
     gap: 36px;
+  }
+
+  .mockup-screen img {
+    object-fit: contain;
   }
 
   .mockup-body {

@@ -397,6 +397,7 @@ export default function App(): JSX.Element {
   }, [])
 
   const handleOpenPreview = useCallback((asset: AssetFile) => {
+    cancelPendingThumbnails()
     setPreviewAsset(asset)
   }, [])
 

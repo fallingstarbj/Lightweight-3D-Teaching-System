@@ -3,7 +3,7 @@ import { getFileExtension } from '../utils/localFile'
 
 import { getAssetKind, isModelPreviewSupported } from '../types'
 
-import { yieldToMain, withTimeout } from '../utils/async'
+import { withTimeout } from '../utils/async'
 
 import {
   loadModelFromPath,
@@ -41,6 +41,11 @@ import { getLibraryIdFromModelPath, isMaterialOverrideApiReady } from '../utils/
 
 const THUMB_SIZE = 256
 const THUMBNAIL_TIMEOUT_MS = 90_000
+const MAX_CONCURRENT_THUMBNAILS = 2
+const THUMB_JPEG_QUALITY = 0.82
+
+const appearanceSuffixCache = new Map<string, { suffix: string; at: number }>()
+const APPEARANCE_SUFFIX_TTL_MS = 30_000
 
 export async function resolveModelThumbnailSettingsKey(
   filePath: string,
@@ -50,8 +55,14 @@ export async function resolveModelThumbnailSettingsKey(
   const id = libraryId ?? getLibraryIdFromModelPath(filePath)
   if (!id || !isMaterialOverrideApiReady()) return baseSettingsKey
 
+  const cached = appearanceSuffixCache.get(id)
+  if (cached && Date.now() - cached.at < APPEARANCE_SUFFIX_TTL_MS) {
+    return cached.suffix ? `${baseSettingsKey}${cached.suffix}` : baseSettingsKey
+  }
+
   try {
     const suffix = await resolveLibraryAppearanceCacheSuffix(id)
+    appearanceSuffixCache.set(id, { suffix, at: Date.now() })
     if (suffix) {
       return `${baseSettingsKey}${suffix}`
     }
@@ -59,7 +70,16 @@ export async function resolveModelThumbnailSettingsKey(
     /* ignore */
   }
 
+  appearanceSuffixCache.set(id, { suffix: '', at: Date.now() })
   return baseSettingsKey
+}
+
+export function invalidateAppearanceSuffixCache(libraryId?: string): void {
+  if (libraryId) {
+    appearanceSuffixCache.delete(libraryId)
+    return
+  }
+  appearanceSuffixCache.clear()
 }
 
 const queue: Array<{
@@ -71,7 +91,12 @@ const queue: Array<{
   resolve: (url: string | null) => void
 }> = []
 
-let processing = false
+let thumbnailGenerationEpoch = 0
+let activeCount = 0
+
+function isThumbnailGenerationCancelled(epoch: number): boolean {
+  return epoch !== thumbnailGenerationEpoch
+}
 
 export async function getOrGenerateThumbnail(
   filePath: string,
@@ -104,51 +129,52 @@ export async function getOrGenerateThumbnail(
   })
 }
 
-async function processQueue(): Promise<void> {
-  if (processing || queue.length === 0) return
-  processing = true
+async function processThumbnailItem(item: (typeof queue)[number]): Promise<void> {
+  const epoch = thumbnailGenerationEpoch
+  try {
+    const dataUrl = await withTimeout(
+      generateThumbnail(item.filePath, item.settingsKey, item.formatExtension, item.libraryId, epoch),
+      THUMBNAIL_TIMEOUT_MS
+    )
 
-  while (queue.length > 0) {
-    const item = queue.shift()!
-    await yieldToMain()
-
-    try {
-      const dataUrl = await withTimeout(
-        generateThumbnail(
-          item.filePath,
-          item.settingsKey,
-          item.formatExtension,
-          item.libraryId
-        ),
-        THUMBNAIL_TIMEOUT_MS
-      )
-
-      if (dataUrl) {
-        await window.electronAPI.saveThumbnail(
-          item.filePath,
-          item.mtimeMs,
-          dataUrl,
-          item.settingsKey
-        )
-        item.resolve(dataUrl)
-      } else {
-        item.resolve(null)
-      }
-    } catch {
+    if (isThumbnailGenerationCancelled(epoch)) {
       item.resolve(null)
+      return
     }
 
-    await yieldToMain()
+    if (dataUrl) {
+      const savedUrl = await window.electronAPI.saveThumbnail(
+        item.filePath,
+        item.mtimeMs,
+        dataUrl,
+        item.settingsKey
+      )
+      item.resolve(isThumbnailGenerationCancelled(epoch) ? null : savedUrl || dataUrl)
+      return
+    }
+    item.resolve(null)
+  } catch {
+    item.resolve(null)
   }
+}
 
-  processing = false
+function processQueue(): void {
+  while (activeCount < MAX_CONCURRENT_THUMBNAILS && queue.length > 0) {
+    const item = queue.shift()!
+    activeCount++
+    void processThumbnailItem(item).finally(() => {
+      activeCount--
+      processQueue()
+    })
+  }
 }
 
 async function generateThumbnail(
   filePath: string,
   settingsKey: string,
   formatExtension?: string,
-  libraryId?: string
+  libraryId?: string,
+  epoch = thumbnailGenerationEpoch
 ): Promise<string | null> {
   const ext = formatExtension ? `.${formatExtension.toLowerCase()}` : getFileExtension(filePath)
   const kind = getAssetKind(formatExtension ?? ext.slice(1))
@@ -177,14 +203,16 @@ async function generateThumbnail(
     return null
   }
 
-  return generateModelThumbnail(filePath, formatExtension, libraryId)
+  return generateModelThumbnail(filePath, formatExtension, libraryId, epoch)
 }
 
 export async function generateModelThumbnail(
   filePath: string,
   formatExtension?: string,
-  libraryId?: string
+  libraryId?: string,
+  epoch = thumbnailGenerationEpoch
 ): Promise<string | null> {
+  if (isThumbnailGenerationCancelled(epoch)) return null
   const canvas = document.createElement('canvas')
   canvas.width = THUMB_SIZE
   canvas.height = THUMB_SIZE
@@ -193,8 +221,9 @@ export async function generateModelThumbnail(
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
-    preserveDrawingBuffer: true
+    antialias: false,
+    preserveDrawingBuffer: true,
+    powerPreference: 'low-power'
   })
   renderer.setSize(THUMB_SIZE, THUMB_SIZE, false)
   renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -202,20 +231,19 @@ export async function generateModelThumbnail(
   renderer.toneMappingExposure = 1.2
 
   try {
-    await yieldToMain()
-    let object = await loadModelFromPath(filePath, formatExtension)
-    await yieldToMain()
+    let object = await loadModelFromPath(filePath, formatExtension, { lightweight: true })
+    if (isThumbnailGenerationCancelled(epoch)) return null
+
+    object = simplifyMeshForThumbnail(object)
 
     const resolvedLibraryId = libraryId ?? getLibraryIdFromModelPath(filePath)
     if (resolvedLibraryId) {
-      await applyLibraryModelAppearance(object, resolvedLibraryId)
+      await applyLibraryModelAppearance(object, resolvedLibraryId, { thumbnail: true })
     }
 
     setupDefaultMaterials(object)
     await waitForModelTextures(object)
 
-    await yieldToMain()
-    object = simplifyMeshForThumbnail(object)
     const { root, box } = centerAndScaleObject(object, THUMBNAIL_MODEL_TARGET_SIZE)
     const nudgeBase = Math.max(...box.getSize(new THREE.Vector3()).toArray(), 0.001)
     root.position.x += THUMBNAIL_POSITION_NUDGE.x * nudgeBase
@@ -226,7 +254,7 @@ export async function generateModelThumbnail(
     frameCameraToBox(camera, box, 1, THUMBNAIL_CAMERA_PADDING)
 
     renderer.render(scene, camera)
-    return canvas.toDataURL('image/png')
+    return canvas.toDataURL('image/jpeg', THUMB_JPEG_QUALITY)
   } finally {
     renderer.dispose()
     scene.traverse((child) => {
@@ -240,6 +268,7 @@ export async function generateModelThumbnail(
 }
 
 export function cancelPendingThumbnails(): void {
+  thumbnailGenerationEpoch++
   while (queue.length > 0) {
     const item = queue.shift()!
     item.resolve(null)

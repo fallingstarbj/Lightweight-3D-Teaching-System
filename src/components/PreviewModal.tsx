@@ -101,7 +101,7 @@ import {
   isMaterialOverrideApiReady
 } from '../utils/materialOverrideApi'
 import { getModelThumbnailCacheKey, requestThumbnailRefresh } from '../utils/previewSettings'
-import { generateModelThumbnail, resolveModelThumbnailSettingsKey } from '../services/thumbnailGenerator'
+import { generateModelThumbnail, invalidateAppearanceSuffixCache, resolveModelThumbnailSettingsKey } from '../services/thumbnailGenerator'
 import { ModelExplodeController, EXPLODE_ANIMATION_DURATION } from '../services/modelExplode'
 import {
   ModelSectionClipController,
@@ -1581,9 +1581,15 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
       .then(async (object) => {
         if (disposed) return
 
-        const optimization = await resolvePreviewOptimization(object, (message) =>
-          window.confirm(message)
-        )
+        reportLoadStatus({ state: 'loading', message: '正在处理模型数据…' })
+
+        const optimization = await resolvePreviewOptimization(object, async (message) => {
+          reportLoadStatus({ state: 'loading', message: '模型面数较高，请选择是否减面…' })
+          if (typeof window.electronAPI?.showConfirmDialog === 'function') {
+            return window.electronAPI.showConfirmDialog(message, '模型面数较高')
+          }
+          return window.confirm(message)
+        })
 
         const totalTriangles = optimization.optimizedTriangles
         if (totalTriangles > 300_000) {
@@ -3879,6 +3885,9 @@ export default function PreviewModal({
       setMaterialHasUnsavedChanges(false)
 
       try {
+        if (asset.libraryId) {
+          invalidateAppearanceSuffixCache(asset.libraryId)
+        }
         const dataUrl = await generateModelThumbnail(asset.path, asset.extension, asset.libraryId)
         if (dataUrl) {
           const settingsKey = await resolveModelThumbnailSettingsKey(

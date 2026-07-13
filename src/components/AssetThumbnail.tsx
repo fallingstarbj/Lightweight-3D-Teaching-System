@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   getOrGenerateThumbnail,
+  invalidateAppearanceSuffixCache,
   resolveModelThumbnailSettingsKey
 } from '../services/thumbnailGenerator'
 import { getFileExtension, pathsEqual } from '../utils/localFile'
@@ -64,6 +65,9 @@ export default function AssetThumbnail({
     const handleThumbnailRefresh = (event: Event): void => {
       const detail = (event as CustomEvent<{ filePath?: string }>).detail
       if (!detail?.filePath || pathsEqual(detail.filePath, filePath)) {
+        if (libraryId) {
+          invalidateAppearanceSuffixCache(libraryId)
+        }
         setRefreshToken((prev) => prev + 1)
         if (libraryId) {
           void resolveModelThumbnailSettingsKey(
@@ -94,7 +98,7 @@ export default function AssetThumbnail({
           observer.disconnect()
         }
       },
-      { rootMargin: '120px' }
+      { rootMargin: '240px' }
     )
 
     observer.observe(el)

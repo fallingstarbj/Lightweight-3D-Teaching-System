@@ -521,7 +521,7 @@ select {
   align-items: center;
   gap: 16px;
   margin: 0;
-  padding: 10px 16px;
+  padding: 6px 16px;
   border-bottom: 1px solid var(--border);
   background: transparent;
   min-width: 0;
@@ -571,6 +571,14 @@ select {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
+  margin: 0;
+  padding: 0;
+  min-height: 32px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .library-pack-toolbar--inline .library-pack-toolbar-group {
@@ -578,6 +586,7 @@ select {
   flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
+  min-height: 32px;
 }
 
 .library-pack-toolbar--inline .library-pack-toolbar-group--primary {
@@ -590,12 +599,25 @@ select {
 }
 
 .library-pack-toolbar--inline .toolbar-divider {
-  height: 20px;
+  height: 16px;
+  align-self: center;
 }
 
 .library-pack-toolbar--inline .toolbar-btn {
-  padding: 5px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
   font-size: 12px;
+  line-height: 1.2;
+  min-height: 26px;
+}
+
+.library-pack-toolbar--inline .library-pack-toolbar-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  line-height: 1.2;
 }
 
 .library-pack-toolbar--inline .toolbar-btn.primary {
@@ -605,6 +627,8 @@ select {
 .library-pack-nav-bar--toolbar-only {
   justify-content: flex-start;
   gap: 0;
+  padding: 4px 16px;
+  min-height: 40px;
 }
 
 .library-pack-nav-bar--toolbar-only .library-pack-nav-bar__toolbar {

@@ -23,7 +23,8 @@ function yieldBeforeHeavyWork(): Promise<void> {
 
 export async function loadModelFromPath(
   filePath: string,
-  formatExtension?: string
+  formatExtension?: string,
+  options?: { lightweight?: boolean }
 ): Promise<THREE.Object3D> {
   const extFromPath = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
   let ext: string
@@ -69,7 +70,11 @@ export async function loadModelFromPath(
       throw new Error(`Unsupported format: ${ext}`)
   }
 
-  await waitForModelTextures(object, { modelFilePath: filePath })
+  if (options?.lightweight) {
+    await waitForModelTextures(object)
+  } else {
+    await waitForModelTextures(object, { modelFilePath: filePath })
+  }
   return object
 }
 

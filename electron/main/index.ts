@@ -204,11 +204,24 @@ function getThumbnailCacheDir(): string {
 }
 
 function getThumbnailCacheKey(filePath: string, mtimeMs: number, settingsKey: string): string {
-  const version = 15
+  const version = 16
   const normalizedPath = filePath.replace(/\\/g, '/').toLowerCase()
   return createHash('md5')
     .update(`${normalizedPath}:${mtimeMs}:${version}:${settingsKey}`)
     .digest('hex')
+}
+
+function toLocalThumbnailUrl(cachePath: string): string {
+  const normalized = cachePath.replace(/\\/g, '/')
+  return `local://file?path=${encodeURIComponent(normalized)}`
+}
+
+function resolveThumbnailCachePath(cacheDir: string, key: string): string | null {
+  const jpgPath = join(cacheDir, `${key}.jpg`)
+  if (existsSync(jpgPath)) return jpgPath
+  const pngPath = join(cacheDir, `${key}.png`)
+  if (existsSync(pngPath)) return pngPath
+  return null
 }
 
 async function resolveThumbnailMtime(filePath: string, mtimeMs: number): Promise<number> {
@@ -561,6 +574,21 @@ ipcMain.handle('open-in-explorer', async (_event, filePath: string) => {
   shell.showItemInFolder(filePath)
 })
 
+ipcMain.handle('show-confirm-dialog', async (_event, message: string, title?: string) => {
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined
+  const result = await dialog.showMessageBox(parent ?? undefined, {
+    type: 'question',
+    title: title?.trim() || '模型面数较高',
+    message: title?.trim() || '模型面数较高',
+    detail: message,
+    buttons: ['减面加载', '保留原精度'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true
+  })
+  return result.response === 0
+})
+
 ipcMain.handle(
   'generate-video-thumbnail',
   async (_event, filePath: string, size: number) => {
@@ -582,13 +610,19 @@ ipcMain.handle(
   'get-thumbnail',
   async (_event, filePath: string, mtimeMs: number, settingsKey: string) => {
     const cacheDir = getThumbnailCacheDir()
-    const effectiveMtime = await resolveThumbnailMtime(filePath, mtimeMs)
-    const key = getThumbnailCacheKey(filePath, effectiveMtime, settingsKey)
-    const cachePath = join(cacheDir, `${key}.png`)
+    let key = getThumbnailCacheKey(filePath, mtimeMs, settingsKey)
+    let cachePath = resolveThumbnailCachePath(cacheDir, key)
 
-    if (existsSync(cachePath)) {
-      const data = await readFile(cachePath)
-      return `data:image/png;base64,${data.toString('base64')}`
+    if (!cachePath) {
+      const effectiveMtime = await resolveThumbnailMtime(filePath, mtimeMs)
+      if (effectiveMtime !== mtimeMs) {
+        key = getThumbnailCacheKey(filePath, effectiveMtime, settingsKey)
+        cachePath = resolveThumbnailCachePath(cacheDir, key)
+      }
+    }
+
+    if (cachePath) {
+      return toLocalThumbnailUrl(cachePath)
     }
     return null
   }
@@ -603,10 +637,11 @@ ipcMain.handle(
     }
     const effectiveMtime = await resolveThumbnailMtime(filePath, mtimeMs)
     const key = getThumbnailCacheKey(filePath, effectiveMtime, settingsKey)
-    const cachePath = join(cacheDir, `${key}.png`)
+    const isJpeg = /^data:image\/jpe?g;base64,/i.test(dataUrl)
+    const cachePath = join(cacheDir, `${key}.${isJpeg ? 'jpg' : 'png'}`)
     const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '')
     await writeFile(cachePath, Buffer.from(base64, 'base64'))
-    return cachePath
+    return toLocalThumbnailUrl(cachePath)
   }
 )
 

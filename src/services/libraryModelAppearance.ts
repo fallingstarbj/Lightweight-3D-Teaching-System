@@ -62,9 +62,15 @@ async function applyTeachingStateAppearance(
 
 export async function applyLibraryModelAppearance(
   root: THREE.Object3D,
-  libraryId: string
+  libraryId: string,
+  options?: { thumbnail?: boolean }
 ): Promise<void> {
   if (!libraryId) return
+
+  if (options?.thumbnail) {
+    await applyLibraryMaterialOverridesForId(root, libraryId)
+    return
+  }
 
   const appliedTeachingState = await applyTeachingStateAppearance(root, libraryId)
   if (!appliedTeachingState) {

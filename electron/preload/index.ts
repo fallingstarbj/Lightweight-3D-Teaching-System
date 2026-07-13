@@ -33,6 +33,7 @@ export interface ElectronAPI {
   readFileText: (filePath: string) => Promise<string>
   fileExists: (filePath: string) => Promise<boolean>
   openInExplorer: (filePath: string) => Promise<void>
+  showConfirmDialog: (message: string, title?: string) => Promise<boolean>
   getThumbnail: (filePath: string, mtimeMs: number, settingsKey: string) => Promise<string | null>
   saveThumbnail: (
     filePath: string,
@@ -175,6 +176,7 @@ const api: ElectronAPI = {
   readFileText: (filePath) => ipcRenderer.invoke('read-file-text', filePath),
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
   openInExplorer: (filePath) => ipcRenderer.invoke('open-in-explorer', filePath),
+  showConfirmDialog: (message, title) => ipcRenderer.invoke('show-confirm-dialog', message, title),
   getThumbnail: (filePath, mtimeMs, settingsKey) =>
     ipcRenderer.invoke('get-thumbnail', filePath, mtimeMs, settingsKey),
   saveThumbnail: (filePath, mtimeMs, dataUrl, settingsKey) =>
