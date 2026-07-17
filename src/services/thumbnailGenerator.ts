@@ -231,7 +231,10 @@ export async function generateModelThumbnail(
   renderer.toneMappingExposure = 1.2
 
   try {
-    let object = await loadModelFromPath(filePath, formatExtension, { lightweight: true })
+    let object = await loadModelFromPath(filePath, formatExtension, {
+      lightweight: true,
+      upAxis: getStoredPreviewSettings().stlUpAxis
+    })
     if (isThumbnailGenerationCancelled(epoch)) return null
 
     object = simplifyMeshForThumbnail(object)

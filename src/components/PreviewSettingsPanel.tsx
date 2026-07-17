@@ -6,11 +6,14 @@ import {
   MAX_KEY_LIGHT_INTENSITY,
   normalizeHexColor
 } from '../utils/previewSettings'
+import { STL_UP_AXIS_OPTIONS, type StlUpAxis } from '../utils/stlOrientation'
 
 interface PreviewSettingsPanelProps {
   settings: PreviewSettings
   onChange: (partial: Partial<PreviewSettings>) => void
   embedded?: boolean
+  /** 当前模型扩展名；仅 stl 时显示朝上轴选项 */
+  modelExtension?: string | null
 }
 
 function SettingRow({
@@ -42,11 +45,17 @@ function getPanoramaFileName(path: string | null): string {
 export default function PreviewSettingsPanel({
   settings,
   onChange,
-  embedded = false
+  embedded = false,
+  modelExtension = null
 }: PreviewSettingsPanelProps): JSX.Element {
   const [panoramaBusy, setPanoramaBusy] = useState(false)
   const [panoramaError, setPanoramaError] = useState('')
   const hasPanorama = !!settings.backgroundPanoramaPath
+  const showStlOrientation = (modelExtension ?? '').toLowerCase().replace(/^\./, '') === 'stl'
+
+  const stlAxisLabel =
+    STL_UP_AXIS_OPTIONS.find((option) => option.value === settings.stlUpAxis)?.label ??
+    settings.stlUpAxis
 
   const handleUploadPanorama = async (): Promise<void> => {
     if (typeof window.electronAPI?.selectAndSavePreviewPanorama !== 'function') {
@@ -103,6 +112,33 @@ export default function PreviewSettingsPanel({
   return (
     <div className="preview-settings-panel">
       {!embedded && <div className="preview-settings-title">预览设置</div>}
+
+      {showStlOrientation && (
+        <SettingRow label="朝上轴向" value={stlAxisLabel}>
+          <p className="preview-setting-hint">STL 无标准朝向，请选择模型中哪条轴对应竖直向上。</p>
+          <div className="stl-orientation-options">
+            {STL_UP_AXIS_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className={`stl-orientation-option${
+                  settings.stlUpAxis === option.value ? ' active' : ''
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="stl-up-axis"
+                  checked={settings.stlUpAxis === option.value}
+                  onChange={() => onChange({ stlUpAxis: option.value as StlUpAxis })}
+                />
+                <span className="stl-orientation-option-text">
+                  <span className="stl-orientation-option-label">{option.label}</span>
+                  <span className="stl-orientation-option-hint">{option.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </SettingRow>
+      )}
 
       <SettingRow label="背景颜色" value={settings.backgroundColor}>
         <div className="preview-color-row">

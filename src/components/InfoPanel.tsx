@@ -23,6 +23,7 @@ import { getImageStats } from '../services/imageLoader'
 import { getAudioStats, getVideoStats } from '../services/mediaLoader'
 import { yieldToMain } from '../utils/async'
 import { formatModelLength } from '../utils/modelUnits'
+import { getStoredPreviewSettings } from '../utils/previewSettings'
 
 interface InfoPanelProps {
   asset: AssetFile | null
@@ -85,7 +86,8 @@ export default function InfoPanel({
             : isModelAsset(asset) && isModelPreviewSupported(asset.extension)
               ? loadModelFromPath(
                   asset.path,
-                  asset.source === 'library' ? asset.extension : undefined
+                  asset.source === 'library' ? asset.extension : undefined,
+                  { upAxis: getStoredPreviewSettings().stlUpAxis }
                 ).then((object) => computeModelStats(object))
               : Promise.resolve(null)
 

@@ -15,7 +15,7 @@ import { toLocalUrl, resolveLocalResourceUrl, toLocalResourcePath, parseLocalPro
 import { readFileBuffer } from '../utils/readFileBuffer'
 import { yieldToMain } from '../utils/async'
 import { configureMeshTextureWrapping, configureObjectTextureWrapping, applyPreviewTextureWrapping, normalizePreviewMaterials } from './materialPbr'
-import { applyStlUpAxisRotation, DEFAULT_STL_UP_AXIS } from '../utils/stlOrientation'
+import { applyStlUpAxisRotation, DEFAULT_STL_UP_AXIS, type StlUpAxis } from '../utils/stlOrientation'
 
 function yieldBeforeHeavyWork(): Promise<void> {
   return yieldToMain()
@@ -24,7 +24,7 @@ function yieldBeforeHeavyWork(): Promise<void> {
 export async function loadModelFromPath(
   filePath: string,
   formatExtension?: string,
-  options?: { lightweight?: boolean }
+  options?: { lightweight?: boolean; upAxis?: StlUpAxis }
 ): Promise<THREE.Object3D> {
   const extFromPath = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
   let ext: string
@@ -62,7 +62,7 @@ export async function loadModelFromPath(
       object = await load3DS(buffer, dir)
       break
     case '.stl':
-      object = await loadSTL(buffer)
+      object = await loadSTL(buffer, options?.upAxis ?? DEFAULT_STL_UP_AXIS)
       break
     case '.max':
       throw new Error('3ds Max .max 格式不支持直接预览')
@@ -446,10 +446,10 @@ function createMeshFromStlGeometry(geometry: THREE.BufferGeometry): THREE.Mesh {
   return new THREE.Mesh(geometry, material)
 }
 
-async function loadSTL(buffer: ArrayBuffer): Promise<THREE.Object3D> {
+async function loadSTL(buffer: ArrayBuffer, upAxis: StlUpAxis = DEFAULT_STL_UP_AXIS): Promise<THREE.Object3D> {
   await yieldBeforeHeavyWork()
   const geometry = new STLLoader().parse(buffer)
-  applyStlUpAxisRotation(geometry, DEFAULT_STL_UP_AXIS)
+  applyStlUpAxisRotation(geometry, upAxis)
   const mesh = createMeshFromStlGeometry(geometry)
   const group = new THREE.Group()
   group.add(mesh)

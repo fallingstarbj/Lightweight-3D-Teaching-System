@@ -1,4 +1,5 @@
 import { BrowserWindow } from 'electron'
+import { getAppIconImage, getAppIconPath } from './appIcon'
 
 let splashWindow: BrowserWindow | null = null
 
@@ -90,11 +91,10 @@ const SPLASH_HTML = `<!DOCTYPE html>
       text-align: center;
     }
     .icon {
-      width: 44px;
-      height: 44px;
-      color: rgba(110, 168, 254, 0.85);
+      width: 56px;
+      height: 56px;
       margin-bottom: 4px;
-      filter: drop-shadow(0 0 12px rgba(110, 168, 254, 0.35));
+      filter: drop-shadow(0 0 14px rgba(110, 168, 254, 0.45));
       animation: icon-float 3s ease-in-out infinite;
     }
     .icon svg { width: 100%; height: 100%; }
@@ -213,8 +213,27 @@ const SPLASH_HTML = `<!DOCTYPE html>
       <div class="brand">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 48 48" fill="none">
-            <path d="M24 4L8 14v20l16 10 16-10V14L24 4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            <path d="M24 4v20M8 14l16 10 16-10M24 24v20" stroke="currentColor" stroke-width="1" stroke-opacity="0.35"/>
+            <defs>
+              <linearGradient id="brand-face-top" x1="8" y1="10" x2="40" y2="22" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#9ec0ff"/>
+                <stop offset="1" stop-color="#6ea8fe"/>
+              </linearGradient>
+              <linearGradient id="brand-face-left" x1="8" y1="14" x2="24" y2="42" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#6ea8fe"/>
+                <stop offset="1" stop-color="#3d5f9c"/>
+              </linearGradient>
+              <linearGradient id="brand-face-right" x1="24" y1="14" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#a78bfa"/>
+                <stop offset="1" stop-color="#5b4a9a"/>
+              </linearGradient>
+            </defs>
+            <path d="M24 6L40 15V33L24 42L8 33V15L24 6Z" stroke="rgba(158,192,255,0.55)" stroke-width="1"/>
+            <path d="M24 6L40 15L24 24L8 15L24 6Z" fill="url(#brand-face-top)" fill-opacity="0.55"/>
+            <path d="M8 15L24 24V42L8 33V15Z" fill="url(#brand-face-left)" fill-opacity="0.5"/>
+            <path d="M40 15L24 24V42L40 33V15Z" fill="url(#brand-face-right)" fill-opacity="0.45"/>
+            <path d="M24 6V24M8 15L24 24L40 15M24 24V42" stroke="#cfe0ff" stroke-width="1.2" stroke-linecap="round" stroke-opacity="0.9"/>
+            <circle cx="24" cy="24" r="2.4" fill="#ffffff"/>
+            <circle cx="24" cy="24" r="5" stroke="#6ea8fe" stroke-width="1" stroke-opacity="0.7"/>
           </svg>
         </div>
         <div class="logo">轻量化三维示教系统</div>
@@ -259,12 +278,15 @@ export function createSplashWindow(): BrowserWindow {
     alwaysOnTop: true,
     show: false,
     backgroundColor: '#0a0b10',
+    icon: getAppIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true
     }
   })
+  const splashIcon = getAppIconImage()
+  if (splashIcon) splashWindow.setIcon(splashIcon)
 
   splashWindow.setMenuBarVisibility(false)
   splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(SPLASH_HTML)}`)

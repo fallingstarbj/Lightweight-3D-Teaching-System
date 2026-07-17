@@ -8,22 +8,61 @@
   <title>轻量化三维示教系统 | Lightweight 3D Teaching System</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="intro-active">
+  <div class="site-intro" id="site-intro" aria-hidden="true">
+    <canvas id="intro-canvas" class="intro-canvas"></canvas>
+    <div class="intro-vignette"></div>
+    <div class="intro-copy">
+      <div class="intro-badge">Lightweight 3D Teaching System</div>
+      <div class="intro-title">轻量化三维示教系统</div>
+    </div>
+  </div>
+
+  <div class="site-bg" aria-hidden="true">
+    <div class="bg-base"></div>
+    <div class="bg-aurora bg-aurora--a"></div>
+    <div class="bg-aurora bg-aurora--b"></div>
+    <div class="bg-mesh"></div>
+    <div class="bg-beams">
+      <span></span><span></span><span></span>
+    </div>
+    <canvas id="bg-canvas" class="bg-canvas"></canvas>
+    <div class="bg-vignette"></div>
+  </div>
+
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="#top">
         <svg class="brand-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-          <path d="M24 4L8 14v20l16 10 16-10V14L24 4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M24 4v20M8 14l16 10 16-10M24 24v20" stroke="currentColor" stroke-width="1" stroke-opacity="0.35"/>
+          <defs>
+            <linearGradient id="brand-face-top" x1="8" y1="10" x2="40" y2="22" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#9ec0ff"/>
+              <stop offset="1" stop-color="#6ea8fe"/>
+            </linearGradient>
+            <linearGradient id="brand-face-left" x1="8" y1="14" x2="24" y2="42" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6ea8fe"/>
+              <stop offset="1" stop-color="#3d5f9c"/>
+            </linearGradient>
+            <linearGradient id="brand-face-right" x1="24" y1="14" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#a78bfa"/>
+              <stop offset="1" stop-color="#5b4a9a"/>
+            </linearGradient>
+          </defs>
+          <path d="M24 6L40 15V33L24 42L8 33V15L24 6Z" stroke="rgba(158,192,255,0.55)" stroke-width="1"/>
+          <path d="M24 6L40 15L24 24L8 15L24 6Z" fill="url(#brand-face-top)" fill-opacity="0.55"/>
+          <path d="M8 15L24 24V42L8 33V15Z" fill="url(#brand-face-left)" fill-opacity="0.5"/>
+          <path d="M40 15L24 24V42L40 33V15Z" fill="url(#brand-face-right)" fill-opacity="0.45"/>
+          <path d="M24 6V24M8 15L24 24L40 15M24 24V42" stroke="#cfe0ff" stroke-width="1.2" stroke-linecap="round" stroke-opacity="0.9"/>
+          <circle cx="24" cy="24" r="2.4" fill="#ffffff"/>
+          <circle cx="24" cy="24" r="5" stroke="#6ea8fe" stroke-width="1" stroke-opacity="0.7"/>
         </svg>
-        <span>轻量化三维示教系统</span>
+        <span class="brand-title">轻量化三维示教系统</span>
       </a>
       <nav class="nav">
+        <a href="#why">为什么选择</a>
         <a href="#features">功能特性</a>
-        <a href="#workflow">使用流程</a>
         <a href="#formats">支持格式</a>
-        <a href="#tech">技术栈</a>
-        <a class="btn btn-primary" href="https://gitee.com/fallingst/lightweight-3d-teaching-system/releases" target="_blank" rel="noopener noreferrer">软件下载</a>
+        <a class="btn btn-primary" href="https://pan.baidu.com/s/1SPeiUzippo8u1fFazbjLTg?pwd=tj1s" target="_blank" rel="noopener noreferrer">软件下载</a>
       </nav>
     </div>
   </header>
@@ -43,10 +82,6 @@
             集教学资源管理、三维模型交互预览、结构标注、部件动画与教学状态切换于一体。
             支持本地文件夹与离线数据包双模式，让课堂示教更高效、更直观。
           </p>
-          <div class="hero-actions">
-            <a class="btn btn-primary" href="#cta">了解产品</a>
-            <a class="btn btn-ghost" href="https://gitee.com/fallingst/lightweight-3d-teaching-system" target="_blank" rel="noopener noreferrer">查看 Gitee 仓库</a>
-          </div>
           <div class="hero-tags">
             <span class="tag">3D 模型预览</span>
             <span class="tag">结构标注</span>
@@ -57,23 +92,66 @@
           </div>
         </div>
 
-        <div class="mockup reveal" aria-label="软件界面预览截图">
-          <div class="mockup-bar">
-            <span class="dot red"></span>
-            <span class="dot yellow"></span>
-            <span class="dot green"></span>
-            <span class="mockup-title">轻量化三维示教系统</span>
+        <div class="mockup-stage reveal" id="hero-mockup-stage">
+          <div class="mockup mockup--live" id="hero-mockup" aria-label="软件界面预览截图">
+            <div class="mockup-glow"></div>
+            <div class="mockup-scanline"></div>
+            <div class="mockup-bar">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="mockup-title">轻量化三维示教系统</span>
+            </div>
+            <div class="mockup-screen">
+              <img
+                src="images/preview-screenshot.png"
+                alt="轻量化三维示教系统预览界面：CRTS3 轨道模型标注与测距"
+                width="1280"
+                height="720"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
           </div>
-          <div class="mockup-screen">
-            <img
-              src="images/preview-screenshot.png"
-              alt="轻量化三维示教系统预览界面：CRTS3 轨道模型标注与测距"
-              width="1280"
-              height="720"
-              loading="eager"
-              decoding="async"
-            />
-          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="why" class="why">
+      <div class="container">
+        <span class="section-label reveal">Why It Matters</span>
+        <h2 class="section-title reveal">复杂装备教学，需要更好的可视化方式</h2>
+
+        <div class="why-intro reveal">
+          <p>
+            通过三维可视化展示，学员可以更快地理解结构组成、工作原理、拆解过程、检修维护要点，以及常见故障表现。
+          </p>
+        </div>
+
+        <div class="why-grid">
+          <article class="why-card why-card--pain reveal">
+            <div class="why-card-kicker">现实痛点</div>
+            <h3>虚拟仿真投入高，却难用在日常课堂</h3>
+            <ul class="why-list">
+              <li>院校已采购的虚拟仿真软件通常价格昂贵</li>
+              <li>内容固定，教师无法按校本课程二次开发</li>
+              <li>对电脑配置要求高，不便于日常备课与随堂演示</li>
+              <li>传统课件难以表达复杂装配关系与检修过程</li>
+            </ul>
+          </article>
+
+          <article class="why-card why-card--solution reveal">
+            <div class="why-card-kicker">我们的方案</div>
+            <h3>轻量化三维示教，贴近真实课堂</h3>
+            <ul class="why-list">
+              <li>普通办公电脑即可流畅运行，降低部署门槛</li>
+              <li>支持 FBX、STL、OBJ、GLB 等多种常见模型格式</li>
+              <li>可为模型添加结构标注与尺寸标注，讲解更精准</li>
+              <li>支持一键爆炸拆解，也可制作分阶段拆解动画</li>
+              <li>可设置正常 / 故障等多种教学状态，一键切换</li>
+              <li>可上传文档类教学资源，模型与文档同屏对照</li>
+            </ul>
+          </article>
         </div>
       </div>
     </section>
@@ -120,38 +198,6 @@
       </div>
     </section>
 
-    <section id="workflow" class="workflow">
-      <div class="container">
-        <span class="section-label reveal">Workflow</span>
-        <h2 class="section-title reveal">从内容制作到课堂演示</h2>
-        <p class="section-desc reveal">
-          内容方使用数据包制作工具打包教学资源，教师安装数据包后即可在课堂中进行三维示教。
-        </p>
-        <div class="workflow-steps">
-          <article class="step-card reveal">
-            <div class="step-num">1</div>
-            <h3>制作数据包</h3>
-            <p>导入模型、贴图与文档，使用制作工具导出初版 <code>.3dam-pack</code> 与激活码。</p>
-          </article>
-          <article class="step-card reveal">
-            <div class="step-num">2</div>
-            <h3>编辑教学内容</h3>
-            <p>在预览中完成标注、动画、教学状态与材质调整，导出含教学数据的完整数据包。</p>
-          </article>
-          <article class="step-card reveal">
-            <div class="step-num">3</div>
-            <h3>安装与激活</h3>
-            <p>教师端安装数据包并输入激活码，模型以加密 <code>.3dam</code> 格式安全存储于本地。</p>
-          </article>
-          <article class="step-card reveal">
-            <div class="step-num">4</div>
-            <h3>课堂三维示教</h3>
-            <p>浏览资产、切换教学状态、配合标注与文档分屏，完成沉浸式结构讲解与演示。</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
     <section id="formats">
       <div class="container">
         <span class="section-label reveal">Formats</span>
@@ -188,45 +234,16 @@
       </div>
     </section>
 
-    <section id="tech">
-      <div class="container">
-        <span class="section-label reveal">Technology</span>
-        <h2 class="section-title reveal">现代技术栈，稳定可靠</h2>
-        <p class="section-desc reveal">
-          采用 Electron 跨平台桌面框架，结合 React 与 TypeScript 构建，三维渲染由 Three.js 驱动。
-        </p>
-        <div class="tech-grid">
-          <div class="tech-item reveal">
-            <strong>Electron</strong>
-            <span>Windows 桌面应用</span>
-          </div>
-          <div class="tech-item reveal">
-            <strong>React</strong>
-            <span>现代化 UI 框架</span>
-          </div>
-          <div class="tech-item reveal">
-            <strong>TypeScript</strong>
-            <span>类型安全开发</span>
-          </div>
-          <div class="tech-item reveal">
-            <strong>Three.js</strong>
-            <span>三维渲染引擎</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section id="cta" class="cta">
       <div class="container">
         <div class="cta-box reveal">
           <h2>开启轻量化三维示教</h2>
           <p>
             便携版无需安装，双击即可运行。支持 7 天全功能试用，也可通过正式激活码授权使用。
-            源码已开源托管于 Gitee，欢迎查阅与共建。
+            点击下方按钮跳转百度网盘下载，提取码：tj1s。
           </p>
           <div class="cta-actions">
-            <a class="btn btn-primary" href="https://gitee.com/fallingst/lightweight-3d-teaching-system" target="_blank" rel="noopener noreferrer">访问 Gitee 仓库</a>
-            <a class="btn btn-ghost" href="https://gitee.com/fallingst/lightweight-3d-teaching-system/blob/master/README.md" target="_blank" rel="noopener noreferrer">阅读项目说明</a>
+            <a class="btn btn-primary" href="https://pan.baidu.com/s/1SPeiUzippo8u1fFazbjLTg?pwd=tj1s" target="_blank" rel="noopener noreferrer">下载软件</a>
           </div>
         </div>
       </div>
@@ -236,11 +253,6 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <span>© <span id="year"></span> 轻量化三维示教系统 · Lightweight 3D Teaching System</span>
-      <div class="footer-links">
-        <a href="https://gitee.com/fallingst/lightweight-3d-teaching-system" target="_blank" rel="noopener noreferrer">Gitee</a>
-        <a href="#features">功能特性</a>
-        <a href="#workflow">使用流程</a>
-      </div>
     </div>
   </footer>
 

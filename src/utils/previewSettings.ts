@@ -1,4 +1,4 @@
-import { DEFAULT_STL_UP_AXIS } from './stlOrientation'
+import { DEFAULT_STL_UP_AXIS, isStlUpAxis, type StlUpAxis } from './stlOrientation'
 
 export interface PreviewSettings {
   backgroundColor: string
@@ -12,6 +12,8 @@ export interface PreviewSettings {
   lightElevation: number
   ambientIntensity: number
   keyLightIntensity: number
+  /** STL 文件哪个轴向视为「朝上」；加载时旋转到场景 Y+ */
+  stlUpAxis: StlUpAxis
 }
 
 const PREVIEW_SETTINGS_KEY = '3dam-preview-settings'
@@ -24,7 +26,8 @@ export const DEFAULT_PREVIEW_SETTINGS: PreviewSettings = {
   lightAzimuth: 0,
   lightElevation: 55,
   ambientIntensity: 0.65,
-  keyLightIntensity: 1.4
+  keyLightIntensity: 1.4,
+  stlUpAxis: DEFAULT_STL_UP_AXIS
 }
 
 export const MIN_LIGHT_ELEVATION = 5
@@ -35,7 +38,7 @@ export const MAX_PANORAMA_BLUR = 1
 export const PREVIEW_SETTINGS_CHANGED_EVENT = '3dam-preview-settings-changed'
 export const THUMBNAIL_REFRESH_EVENT = '3dam-thumbnail-refresh'
 
-const MODEL_THUMBNAIL_PIPELINE_REVISION = '2'
+const MODEL_THUMBNAIL_PIPELINE_REVISION = '3'
 const TEXTURE_THUMBNAIL_CACHE_KEY = 'texture'
 const AUDIO_THUMBNAIL_CACHE_KEY = 'audio'
 const VIDEO_THUMBNAIL_CACHE_KEY = 'video'
@@ -107,7 +110,10 @@ export function clampPreviewSettings(partial: Partial<PreviewSettings>): Preview
       partial.keyLightIntensity ?? DEFAULT_PREVIEW_SETTINGS.keyLightIntensity,
       0,
       MAX_KEY_LIGHT_INTENSITY
-    )
+    ),
+    stlUpAxis: isStlUpAxis(partial.stlUpAxis)
+      ? partial.stlUpAxis
+      : DEFAULT_PREVIEW_SETTINGS.stlUpAxis
   }
 }
 
@@ -180,7 +186,7 @@ export function getPreviewSettingsCacheKey(settings: PreviewSettings): string {
 }
 
 export function getModelThumbnailCacheKey(): string {
-  return `${getPreviewSettingsCacheKey(getStoredPreviewSettings())}:${MODEL_THUMBNAIL_PIPELINE_REVISION}:${DEFAULT_STL_UP_AXIS}`
+  return `${getPreviewSettingsCacheKey(getStoredPreviewSettings())}:${MODEL_THUMBNAIL_PIPELINE_REVISION}`
 }
 
 export function getTextureThumbnailCacheKey(): string {

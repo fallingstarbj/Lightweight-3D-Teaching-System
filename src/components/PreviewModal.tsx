@@ -1576,7 +1576,8 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
 
     void loadModelFromPath(
       asset.path,
-      asset.source === 'library' ? asset.extension : undefined
+      asset.source === 'library' ? asset.extension : undefined,
+      { upAxis: settings.stlUpAxis }
     )
       .then(async (object) => {
         if (disposed) return
@@ -2183,7 +2184,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
         }
       })
     }
-  }, [asset.path])
+  }, [asset.path, settings.stlUpAxis])
 
   useEffect(() => {
     if (!sceneRef.current) return
@@ -4449,6 +4450,7 @@ export default function PreviewModal({
               showStructureTab={isLibraryModel}
               previewSettings={previewSettings}
               onPreviewSettingsChange={updatePreviewSettings}
+              modelExtension={asset.extension}
               materialEditMode={materialEditMode}
               meshParts={meshParts}
               availableTextures={availableTextures}

@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { getPreloadPath, getRendererHtmlPath } from './appPaths'
+import { getAppIconImage, getAppIconPath } from './appIcon'
 
 let activatorWindow: BrowserWindow | null = null
 
@@ -17,6 +18,7 @@ export function createActivatorWindow(): void {
     maximizable: false,
     title: '轻量化三维示教系统 数据包制作工具',
     backgroundColor: '#0f0f12',
+    icon: getAppIconPath(),
     webPreferences: {
       preload: getPreloadPath('activator'),
       contextIsolation: true,
@@ -24,6 +26,8 @@ export function createActivatorWindow(): void {
       sandbox: false
     }
   })
+  const appIcon = getAppIconImage()
+  if (appIcon) activatorWindow.setIcon(appIcon)
 
   if (process.env['ELECTRON_RENDERER_URL']) {
     activatorWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/activator/index.html`)

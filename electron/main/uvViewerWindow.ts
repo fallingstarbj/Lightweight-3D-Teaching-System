@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import type { MeshUvLayoutPayload } from '../../src/types/meshUvLayout'
 import { getPreloadPath, getRendererHtmlPath } from './appPaths'
+import { getAppIconImage, getAppIconPath } from './appIcon'
 
 let uvViewerWindow: BrowserWindow | null = null
 let pendingUvViewerPayload: MeshUvLayoutPayload | null = null
@@ -42,6 +43,7 @@ export function openUvViewerWindow(payload: MeshUvLayoutPayload, parent?: Browse
     title: `UV - ${payload.meshName}`,
     backgroundColor: '#0f0f12',
     autoHideMenuBar: true,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: getPreloadPath('index'),
       contextIsolation: true,
@@ -49,6 +51,8 @@ export function openUvViewerWindow(payload: MeshUvLayoutPayload, parent?: Browse
       sandbox: false
     }
   })
+  const viewerIcon = getAppIconImage()
+  if (viewerIcon) uvViewerWindow.setIcon(viewerIcon)
 
   uvViewerWindow.setTitle(`UV - ${payload.meshName}`)
 

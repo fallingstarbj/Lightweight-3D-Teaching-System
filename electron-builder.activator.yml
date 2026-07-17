@@ -11,6 +11,7 @@ extraMetadata:
   main: ./out/main/activatorEntry.js
   description: 轻量化三维示教系统 数据包制作工具
 win:
+  icon: build/icon.ico
   target:
     - target: portable
       arch:

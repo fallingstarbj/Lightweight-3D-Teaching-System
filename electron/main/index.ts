@@ -4,6 +4,7 @@ import { join, extname } from 'path'
 import { readdir, stat, readFile, writeFile, mkdir } from 'fs/promises'
 import { createReadStream, existsSync } from 'fs'
 import { createHash } from 'crypto'
+import { getAppIconImage, getAppIconPath } from './appIcon'
 import {
   initDataPacks,
   listPackAssets,
@@ -168,6 +169,7 @@ function createWindow(): void {
     title: '轻量化三维示教系统',
     backgroundColor: '#0f0f12',
     show: false,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -175,6 +177,8 @@ function createWindow(): void {
       sandbox: false
     }
   })
+  const appIcon = getAppIconImage()
+  if (appIcon) mainWindow.setIcon(appIcon)
 
   if (process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])

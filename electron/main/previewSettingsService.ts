@@ -2,6 +2,9 @@ import { join } from 'node:path'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { app } from 'electron'
+import { normalizePreviewPanoramaPath } from './previewBackgroundService'
+
+type StlUpAxis = '+x' | '-x' | '+y' | '-y' | '+z' | '-z'
 
 export interface AppPreviewSettings {
   backgroundColor: string
@@ -12,9 +15,8 @@ export interface AppPreviewSettings {
   lightElevation: number
   ambientIntensity: number
   keyLightIntensity: number
+  stlUpAxis: StlUpAxis
 }
-
-import { normalizePreviewPanoramaPath } from './previewBackgroundService'
 
 const SETTINGS_FILE = 'preview-settings.json'
 
@@ -26,7 +28,22 @@ const DEFAULT_SETTINGS: AppPreviewSettings = {
   lightAzimuth: 0,
   lightElevation: 55,
   ambientIntensity: 0.65,
-  keyLightIntensity: 1.4
+  keyLightIntensity: 1.4,
+  stlUpAxis: '+x'
+}
+
+function normalizeStlUpAxis(value: unknown): StlUpAxis {
+  if (
+    value === '+x' ||
+    value === '-x' ||
+    value === '+y' ||
+    value === '-y' ||
+    value === '+z' ||
+    value === '-z'
+  ) {
+    return value
+  }
+  return DEFAULT_SETTINGS.stlUpAxis
 }
 
 function getSettingsPath(): string {
@@ -81,7 +98,8 @@ export function normalizeAppPreviewSettings(partial: Partial<AppPreviewSettings>
       Number(partial?.keyLightIntensity) || DEFAULT_SETTINGS.keyLightIntensity,
       0,
       3
-    )
+    ),
+    stlUpAxis: normalizeStlUpAxis(partial?.stlUpAxis)
   }
 }
 

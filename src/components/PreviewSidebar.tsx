@@ -20,6 +20,7 @@ interface PreviewSidebarProps {
   showStructureTab: boolean
   previewSettings: PreviewSettings
   onPreviewSettingsChange: (partial: Partial<PreviewSettings>) => void
+  modelExtension?: string | null
   materialEditMode: boolean
   meshParts: MeshPartInfo[]
   availableTextures: TextureOption[]
@@ -163,6 +164,7 @@ export default function PreviewSidebar({
   showStructureTab,
   previewSettings,
   onPreviewSettingsChange,
+  modelExtension = null,
   materialEditMode,
   meshParts,
   availableTextures,
@@ -277,6 +279,7 @@ export default function PreviewSidebar({
               embedded
               settings={previewSettings}
               onChange={onPreviewSettingsChange}
+              modelExtension={modelExtension}
             />
             <div className="preview-sidebar-render-divider" aria-hidden="true" />
             <MaterialEditPanel
