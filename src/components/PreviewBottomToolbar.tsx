@@ -5,6 +5,8 @@ import type { ModelDisplayMode, PreviewInputMode } from '../services/modelPrevie
 import type { SectionAxis } from '../services/modelSectionClip'
 import type { MarkerCollection } from '../types/marker'
 import type { ModelTeachingState } from '../types/modelTeachingState'
+import type { PreviewSettings } from '../utils/previewSettings'
+import PreviewSettingsPanel from './PreviewSettingsPanel'
 
 interface PreviewBottomToolbarProps {
   canExplode: boolean
@@ -42,9 +44,13 @@ interface PreviewBottomToolbarProps {
   onSectionAxisChange: (axis: SectionAxis) => void
   onSectionPositionChange: (position: number) => void
   operationHint?: string | null
+  screenshotSaving?: boolean
   onCaptureScreenshot: () => void
   inputMode: PreviewInputMode
   onToggleInputMode: () => void
+  previewSettings: PreviewSettings
+  onPreviewSettingsChange: (partial: Partial<PreviewSettings>) => void
+  modelExtension?: string | null
 }
 
 function ResetViewIcon(): JSX.Element {
@@ -244,6 +250,19 @@ function TouchInputIcon(): JSX.Element {
   )
 }
 
+function RenderIcon(): JSX.Element {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2" strokeLinecap="round" />
+      <path
+        d="M6.1 6.1l1.55 1.55M16.35 16.35l1.55 1.55M17.9 6.1l-1.55 1.55M7.65 16.35l-1.55 1.55"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 const STANDARD_VIEWS: Array<{ id: StandardViewDirection; label: string; Icon: () => JSX.Element }> = [
   { id: 'top', label: '俯视图', Icon: TopViewIcon },
   { id: 'front', label: '正视图', Icon: FrontViewIcon },
@@ -295,12 +314,17 @@ export default function PreviewBottomToolbar({
   screenshotSaving = false,
   onCaptureScreenshot,
   inputMode,
-  onToggleInputMode
+  onToggleInputMode,
+  previewSettings,
+  onPreviewSettingsChange,
+  modelExtension = null
 }: PreviewBottomToolbarProps): JSX.Element {
   const [markerMenuOpen, setMarkerMenuOpen] = useState(false)
   const [stateMenuOpen, setStateMenuOpen] = useState(false)
+  const [renderMenuOpen, setRenderMenuOpen] = useState(false)
   const markerPickerRef = useRef<HTMLDivElement>(null)
   const statePickerRef = useRef<HTMLDivElement>(null)
+  const renderPickerRef = useRef<HTMLDivElement>(null)
   const visibleCollection =
     markerCollections.find((item) => item.id === visibleCollectionId) ?? null
 
@@ -330,6 +354,19 @@ export default function PreviewBottomToolbar({
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [stateMenuOpen])
 
+  useEffect(() => {
+    if (!renderMenuOpen) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!renderPickerRef.current?.contains(event.target as Node)) {
+        setRenderMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [renderMenuOpen])
+
   const markerButtonLabel = visibleCollection
     ? visibleCollection.name
     : markerCollections.length > 0
@@ -338,6 +375,8 @@ export default function PreviewBottomToolbar({
 
   const handleMarkerButtonClick = () => {
     if (markerCollections.length === 0) return
+    setStateMenuOpen(false)
+    setRenderMenuOpen(false)
     setMarkerMenuOpen((prev) => !prev)
   }
 
@@ -351,6 +390,8 @@ export default function PreviewBottomToolbar({
 
   const handleTeachingStateButtonClick = () => {
     if (teachingStates.length === 0) return
+    setMarkerMenuOpen(false)
+    setRenderMenuOpen(false)
     setStateMenuOpen((prev) => !prev)
   }
 
@@ -646,6 +687,35 @@ export default function PreviewBottomToolbar({
           {inputMode === 'touch' ? <TouchInputIcon /> : <MouseInputIcon />}
           <span>{inputMode === 'touch' ? '触屏' : '键鼠'}</span>
         </button>
+
+        <div className="preview-bottom-toolbar-divider" aria-hidden="true" />
+
+        <div className="preview-render-picker-wrap" ref={renderPickerRef}>
+          {renderMenuOpen && (
+            <div className="preview-render-picker-menu" role="dialog" aria-label="渲染设置">
+              <div className="preview-render-picker-title">渲染设置</div>
+              <PreviewSettingsPanel
+                embedded
+                settings={previewSettings}
+                onChange={onPreviewSettingsChange}
+                modelExtension={modelExtension}
+              />
+            </div>
+          )}
+          <button
+            type="button"
+            className={`preview-bottom-tool-btn ${renderMenuOpen ? 'active' : ''}`}
+            onClick={() => {
+              setMarkerMenuOpen(false)
+              setStateMenuOpen(false)
+              setRenderMenuOpen((open) => !open)
+            }}
+            title="调整光照、背景等渲染属性"
+          >
+            <RenderIcon />
+            <span>渲染</span>
+          </button>
+        </div>
       </div>
     </div>
   )

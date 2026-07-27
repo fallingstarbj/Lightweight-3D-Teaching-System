@@ -41,6 +41,10 @@ export interface ElectronAPI {
     dataUrl: string,
     settingsKey: string
   ) => Promise<string>
+  getCustomThumbnail: (libraryId: string) => Promise<string | null>
+  hasCustomThumbnail: (libraryId: string) => Promise<boolean>
+  clearCustomThumbnail: (libraryId: string) => Promise<boolean>
+  selectAndSetCustomThumbnail: (libraryId: string) => Promise<string | null>
   generateVideoThumbnail: (filePath: string, size: number) => Promise<string | null>
   getDirname: (filePath: string) => Promise<string>
   joinPath: (...parts: string[]) => Promise<string>
@@ -66,6 +70,11 @@ export interface ElectronAPI {
   activateDataPack: (packId: string, licenseKey: string) => Promise<PackLicenseStatus>
   uninstallDataPack: (packId: string) => Promise<boolean>
   removePackAsset: (packId: string, libraryId: string) => Promise<boolean>
+  renamePackAsset: (
+    packId: string,
+    libraryId: string,
+    newName: string
+  ) => Promise<LibraryAsset | null>
   listPackFolders: (packId: string) => Promise<PackFolderRecord[]>
   createPackFolder: (packId: string, name: string, parentId?: string | null) => Promise<PackFolderRecord>
   deletePackFolder: (packId: string, folderId: string) => Promise<boolean>
@@ -181,6 +190,11 @@ const api: ElectronAPI = {
     ipcRenderer.invoke('get-thumbnail', filePath, mtimeMs, settingsKey),
   saveThumbnail: (filePath, mtimeMs, dataUrl, settingsKey) =>
     ipcRenderer.invoke('save-thumbnail', filePath, mtimeMs, dataUrl, settingsKey),
+  getCustomThumbnail: (libraryId) => ipcRenderer.invoke('get-custom-thumbnail', libraryId),
+  hasCustomThumbnail: (libraryId) => ipcRenderer.invoke('has-custom-thumbnail', libraryId),
+  clearCustomThumbnail: (libraryId) => ipcRenderer.invoke('clear-custom-thumbnail', libraryId),
+  selectAndSetCustomThumbnail: (libraryId) =>
+    ipcRenderer.invoke('select-and-set-custom-thumbnail', libraryId),
   generateVideoThumbnail: (filePath, size) =>
     ipcRenderer.invoke('generate-video-thumbnail', filePath, size),
   getDirname: (filePath) => ipcRenderer.invoke('get-dirname', filePath),
@@ -204,6 +218,8 @@ const api: ElectronAPI = {
   uninstallDataPack: (packId) => ipcRenderer.invoke('uninstall-data-pack', packId),
   removePackAsset: (packId, libraryId) =>
     ipcRenderer.invoke('remove-pack-asset', packId, libraryId),
+  renamePackAsset: (packId, libraryId, newName) =>
+    ipcRenderer.invoke('rename-pack-asset', packId, libraryId, newName),
   listPackFolders: (packId) => ipcRenderer.invoke('list-pack-folders', packId),
   createPackFolder: (packId, name, parentId) =>
     ipcRenderer.invoke('create-pack-folder', packId, name, parentId),

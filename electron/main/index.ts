@@ -6,6 +6,12 @@ import { createReadStream, existsSync } from 'fs'
 import { createHash } from 'crypto'
 import { getAppIconImage, getAppIconPath } from './appIcon'
 import {
+  getCustomThumbnail,
+  hasCustomThumbnail,
+  clearCustomThumbnail,
+  selectAndSetCustomThumbnail
+} from './customThumbnailService'
+import {
   initDataPacks,
   listPackAssets,
   listInstalledPacks,
@@ -16,6 +22,7 @@ import {
   getMachineCode,
   selectAndInstallDataPack,
   removePackAsset,
+  renamePackAsset,
   listPackFolders,
   createPackFolder,
   deletePackFolder,
@@ -649,6 +656,22 @@ ipcMain.handle(
   }
 )
 
+ipcMain.handle('get-custom-thumbnail', async (_event, libraryId: string) => {
+  return getCustomThumbnail(libraryId)
+})
+
+ipcMain.handle('has-custom-thumbnail', async (_event, libraryId: string) => {
+  return hasCustomThumbnail(libraryId)
+})
+
+ipcMain.handle('clear-custom-thumbnail', async (_event, libraryId: string) => {
+  return clearCustomThumbnail(libraryId)
+})
+
+ipcMain.handle('select-and-set-custom-thumbnail', async (_event, libraryId: string) => {
+  return selectAndSetCustomThumbnail(libraryId, mainWindow)
+})
+
 ipcMain.handle('get-dirname', (_event, filePath: string) => {
   const normalized = filePath.replace(/\\/g, '/')
   const idx = normalized.lastIndexOf('/')
@@ -722,6 +745,13 @@ ipcMain.handle('uninstall-data-pack', async (_event, packId: string) => {
 ipcMain.handle('remove-pack-asset', async (_event, packId: string, libraryId: string) => {
   return removePackAsset(packId, libraryId)
 })
+
+ipcMain.handle(
+  'rename-pack-asset',
+  async (_event, packId: string, libraryId: string, newName: string) => {
+    return renamePackAsset(packId, libraryId, newName)
+  }
+)
 
 ipcMain.handle('list-pack-folders', async (_event, packId: string) => {
   return listPackFolders(packId)

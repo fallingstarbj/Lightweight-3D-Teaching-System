@@ -174,6 +174,7 @@ interface PlacementStart {
 interface ModelPreviewProps {
   asset: AssetFile
   settings: PreviewSettings
+  onPreviewSettingsChange: (partial: Partial<PreviewSettings>) => void
   markers: ModelMarker[]
   selectedMarkerId: string | null
   markerDragEnabled: boolean
@@ -190,6 +191,8 @@ interface ModelPreviewProps {
   animationGizmoMode: 'translate' | 'rotate'
   teachingStateEditMode: boolean
   teachingTransformMode: 'translate' | 'rotate' | 'scale'
+  modelEditMode: boolean
+  modelEditTransformMode: 'translate' | 'rotate' | 'scale' | null
   selectedModelPartUuid: string | null
   selectedModelPartName?: string | null
   partAnimationChannels: PartAnimationChannel[]
@@ -266,6 +269,8 @@ export interface ModelPreviewHandle {
   selectModelPart: (meshUuid: string) => boolean
   clearModelPartSelection: () => void
   renameModelPart: (objectUuid: string, name: string) => boolean
+  resetSelectedPartTransform: (meshUuid: string) => boolean
+  resetAllPartTransforms: () => void
   getPartDisplayNames: () => Record<string, string>
   getPartAnimationDocument: () => PartAnimationDocument | null
   getPartAnimationMarkers: () => PartAnimationKeyframeMarker[]
@@ -345,6 +350,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
   {
     asset,
     settings,
+    onPreviewSettingsChange,
     markers,
     selectedMarkerId,
     markerDragEnabled,
@@ -361,6 +367,8 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
     animationGizmoMode,
     teachingStateEditMode,
     teachingTransformMode,
+    modelEditMode,
+    modelEditTransformMode,
     selectedModelPartUuid,
     selectedModelPartName = null,
     partAnimationChannels,
@@ -440,6 +448,14 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
   const animationGizmoModeRef = useRef(animationGizmoMode)
   const teachingStateEditModeRef = useRef(teachingStateEditMode)
   const teachingTransformModeRef = useRef(teachingTransformMode)
+  const modelEditModeRef = useRef(modelEditMode)
+  const modelEditTransformModeRef = useRef(modelEditTransformMode)
+  const partRestPoseRef = useRef(
+    new Map<
+      string,
+      { position: THREE.Vector3; rotation: THREE.Euler; scale: THREE.Vector3 }
+    >()
+  )
   const partAnimationChannelsRef = useRef(partAnimationChannels)
   const selectedModelPartUuidRef = useRef(selectedModelPartUuid)
   const onPartAnimationSyncRef = useRef(onPartAnimationSync)
@@ -537,6 +553,8 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
   animationGizmoModeRef.current = animationGizmoMode
   teachingStateEditModeRef.current = teachingStateEditMode
   teachingTransformModeRef.current = teachingTransformMode
+  modelEditModeRef.current = modelEditMode
+  modelEditTransformModeRef.current = modelEditTransformMode
   partAnimationChannelsRef.current = partAnimationChannels
   selectedModelPartUuidRef.current = selectedModelPartUuid
   onPartAnimationSyncRef.current = onPartAnimationSync
@@ -867,16 +885,24 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
         partsVisibilityControllerRef.current?.setAllVisible(visible)
       },
       selectModelPart: (meshUuid) => {
-        if (materialEditModeRef.current) {
+        let ok = false
+        if (modelEditModeRef.current) {
+          // 材质槽位由外层 selectMesh 负责，这里只负责部件选中与变换手柄
+          ok = partsVisibilityControllerRef.current?.selectMesh(meshUuid) ?? false
+        } else if (materialEditModeRef.current) {
           partsVisibilityControllerRef.current?.clearSelection()
           materialEditControllerRef.current?.selectMesh(meshUuid)
-          return true
+          ok = true
+        } else {
+          materialEditControllerRef.current?.clearSelection()
+          ok = partsVisibilityControllerRef.current?.selectMesh(meshUuid) ?? false
         }
-        materialEditControllerRef.current?.clearSelection()
-        return partsVisibilityControllerRef.current?.selectMesh(meshUuid) ?? false
+        attachTransformControlsRef.current()
+        return ok
       },
       clearModelPartSelection: () => {
         partsVisibilityControllerRef.current?.clearSelection()
+        attachTransformControlsRef.current()
       },
       renameModelPart: (objectUuid, name) => {
         const controller = partsVisibilityControllerRef.current
@@ -886,6 +912,33 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
           onPartAnimationSyncRef.current?.()
         }
         return true
+      },
+      resetSelectedPartTransform: (meshUuid) => {
+        const pose = partRestPoseRef.current.get(meshUuid)
+        const root = modelRootRef.current
+        if (!pose || !root) return false
+        const found = root.getObjectByProperty('uuid', meshUuid)
+        if (!(found instanceof THREE.Mesh)) return false
+        found.position.copy(pose.position)
+        found.rotation.copy(pose.rotation)
+        found.scale.copy(pose.scale)
+        found.updateMatrixWorld(true)
+        attachTransformControlsRef.current()
+        return true
+      },
+      resetAllPartTransforms: () => {
+        const root = modelRootRef.current
+        if (!root) return
+        root.traverse((child) => {
+          if (!(child instanceof THREE.Mesh)) return
+          const pose = partRestPoseRef.current.get(child.uuid)
+          if (!pose) return
+          child.position.copy(pose.position)
+          child.rotation.copy(pose.rotation)
+          child.scale.copy(pose.scale)
+          child.updateMatrixWorld(true)
+        })
+        attachTransformControlsRef.current()
       },
       getPartDisplayNames: () => partsVisibilityControllerRef.current?.getDisplayNames() ?? {},
       getPartAnimationDocument: () => partAnimationControllerRef.current?.getDocument() ?? null,
@@ -1189,27 +1242,18 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
     }
 
     const syncOrbitInteraction = (): void => {
-      const transformEditing =
-        (animationEditModeRef.current || teachingStateEditModeRef.current) &&
-        !!selectedModelPartUuidRef.current
       const interactionLocked =
         placementModeRef.current ||
         measureModeRef.current ||
         markerDraggingRef.current
 
-      if (transformEditing) {
-        controls.mouseButtons.LEFT = null
-        controls.enableRotate = false
-        controls.enablePan = true
-        controls.enableZoom = true
-      } else {
-        controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE
-        controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY
-        controls.mouseButtons.RIGHT = THREE.MOUSE.PAN
-        controls.enableRotate = !interactionLocked
-        controls.enablePan = !interactionLocked
-        controls.enableZoom = !interactionLocked
-      }
+      // 编辑模式下仍保留左键旋转；拖动 TransformControls 手柄时由 dragging-changed 临时关闭 OrbitControls
+      controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE
+      controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY
+      controls.mouseButtons.RIGHT = THREE.MOUSE.PAN
+      controls.enableRotate = !interactionLocked
+      controls.enablePan = !interactionLocked
+      controls.enableZoom = !interactionLocked
 
       if (inputModeRef.current === 'touch') {
         controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }
@@ -1646,6 +1690,17 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
 
         teachingStateController.captureBaseline()
 
+        partRestPoseRef.current.clear()
+        root.traverse((child) => {
+          if (!(child instanceof THREE.Mesh)) return
+          if (child.name === 'part-selection-outline') return
+          partRestPoseRef.current.set(child.uuid, {
+            position: child.position.clone(),
+            rotation: child.rotation.clone(),
+            scale: child.scale.clone()
+          })
+        })
+
         if (asset.libraryId && typeof window.electronAPI?.getTeachingStates === 'function') {
           try {
             const savedTeaching = await window.electronAPI.getTeachingStates(asset.libraryId)
@@ -1748,6 +1803,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
         onMeasureStateChangeRef.current?.({ pointCount: 0, distance: null, points: [] })
 
         const transformControls = new TransformControls(camera, renderer.domElement)
+        transformControls.setSize(0.55)
         transformControls.addEventListener('dragging-changed', (event) => {
           const dragging = Boolean(event.value)
           transformDraggingRef.current = dragging
@@ -1757,7 +1813,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
           transformDragJustEndedRef.current = true
           syncOrbitForTransformEditRef.current()
 
-          if (teachingStateEditModeRef.current) {
+          if (teachingStateEditModeRef.current || modelEditModeRef.current) {
             partsVisibilityControllerRef.current?.getSelectedMesh()?.updateMatrixWorld(true)
             return
           }
@@ -1778,7 +1834,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
         })
         transformControls.addEventListener('change', () => {
           if (!transformDraggingRef.current) return
-          if (teachingStateEditModeRef.current) return
+          if (teachingStateEditModeRef.current || modelEditModeRef.current) return
           const mesh = partAnimationControllerRef.current?.getSelectedMesh()
           if (!mesh) return
           partAnimationControllerRef.current?.captureLiveTransform(
@@ -1789,15 +1845,20 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
         })
         scene.add(transformControls.getHelper())
         transformControls.visible = false
+        transformControls.enabled = false
         transformControlsRef.current = transformControls
 
         attachTransformControlsRef.current = () => {
           const tc = transformControlsRef.current
           const animMode = animationEditModeRef.current
           const stateMode = teachingStateEditModeRef.current
-          if (!tc || (!animMode && !stateMode)) {
+          const editMode = modelEditModeRef.current
+          if (!tc || (!animMode && !stateMode && !editMode)) {
             tc?.detach()
-            if (tc) tc.visible = false
+            if (tc) {
+              tc.visible = false
+              tc.enabled = false
+            }
             syncOrbitForTransformEditRef.current()
             return
           }
@@ -1809,18 +1870,29 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
             tc.setMode(gizmoMode === 'rotate' ? 'rotate' : 'translate')
           } else {
             mesh = partsVisibilityControllerRef.current?.getSelectedMesh() ?? null
-            const mode = teachingTransformModeRef.current
+            const mode = editMode
+              ? modelEditTransformModeRef.current
+              : teachingTransformModeRef.current
+            if (editMode && !mode) {
+              tc.detach()
+              tc.visible = false
+              tc.enabled = false
+              syncOrbitForTransformEditRef.current()
+              return
+            }
             tc.setMode(mode === 'rotate' ? 'rotate' : mode === 'scale' ? 'scale' : 'translate')
           }
 
           if (!mesh) {
             tc.detach()
             tc.visible = false
+            tc.enabled = false
             syncOrbitForTransformEditRef.current()
             return
           }
           tc.attach(mesh)
           tc.visible = true
+          tc.enabled = true
           syncOrbitForTransformEditRef.current()
         }
 
@@ -2287,6 +2359,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
     materialEditMode,
     animationEditMode,
     teachingStateEditMode,
+    modelEditMode,
     selectedModelPartUuid
   ])
 
@@ -2301,6 +2374,8 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
     animationGizmoMode,
     teachingStateEditMode,
     teachingTransformMode,
+    modelEditMode,
+    modelEditTransformMode,
     selectedModelPartUuid,
     partAnimationChannels,
     loadState
@@ -2444,6 +2519,9 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
           onCaptureScreenshot={() => void handleCaptureScreenshot()}
           inputMode={inputMode}
           onToggleInputMode={handleToggleInputMode}
+          previewSettings={settings}
+          onPreviewSettingsChange={onPreviewSettingsChange}
+          modelExtension={asset.extension}
         />
       )}
       {loadState === 'ready' && !animationEditMode && !toolModeActive && animationClips.length > 0 && (
@@ -2526,7 +2604,7 @@ export default function PreviewModal({
     points: []
   })
   const [activeStandardView, setActiveStandardView] = useState<StandardViewDirection | null>(null)
-  const [sidebarTab, setSidebarTab] = useState<PreviewSidebarTab>('render')
+  const [sidebarTab, setSidebarTab] = useState<PreviewSidebarTab>('edit')
   const [partAnimDocument, setPartAnimDocument] = useState<PartAnimationDocument>(() =>
     createDefaultPartAnimation()
   )
@@ -2564,9 +2642,13 @@ export default function PreviewModal({
 
   const animationEditMode = sidebarTab === 'animation'
   const statesEditMode = sidebarTab === 'states'
+  const modelEditMode = sidebarTab === 'edit'
   const [teachingTransformMode, setTeachingTransformMode] = useState<'translate' | 'rotate' | 'scale'>(
     'translate'
   )
+  const [modelEditTransformMode, setModelEditTransformMode] = useState<
+    'translate' | 'rotate' | 'scale' | null
+  >('translate')
   const [animationGizmoMode, setAnimationGizmoMode] = useState<'translate' | 'rotate'>('translate')
   const [selectedPartTransform, setSelectedPartTransform] = useState<{
     position: { x: number; y: number; z: number }
@@ -2665,15 +2747,9 @@ export default function PreviewModal({
       return
     }
 
-    const doc = previewRef.current?.getPartAnimationDocument() ?? partAnimDocument
-    const hasContent = hasPartAnimationContent(doc)
-    const activeTeachingStateId = previewRef.current?.getActiveTeachingStateId() ?? null
-    const teachingPoseActive = !!activeTeachingStateId
+    const teachingPoseActive = !!(previewRef.current?.getActiveTeachingStateId() ?? null)
 
-    if (
-      sidebarTab === 'animation' ||
-      (sidebarTab === 'render' && hasContent && !teachingPoseActive)
-    ) {
+    if (sidebarTab === 'animation') {
       previewRef.current?.setPartAnimationPreviewEnabled(true)
       return
     }
@@ -2682,12 +2758,7 @@ export default function PreviewModal({
       preserveScenePose: sidebarTab === 'states' || teachingPoseActive
     })
     previewRef.current?.setPartAnimationPlaying(false)
-  }, [partAnimDocument, previewToolModeActive, sidebarTab])
-
-  const hasPartAnimPlayback = useMemo(
-    () => hasPartAnimationContent(partAnimDocument),
-    [partAnimDocument]
-  )
+  }, [previewToolModeActive, sidebarTab])
 
   const teachingStatesForPicker = useMemo(
     () => sortTeachingStates(teachingStateDocument.states),
@@ -2890,7 +2961,8 @@ export default function PreviewModal({
     setViewportFullscreen(false)
     setMeasureState({ pointCount: 0, distance: null, points: [] })
     setActiveStandardView(null)
-    setSidebarTab('render')
+    setSidebarTab('edit')
+    setMaterialEditMode(true)
     setPartAnimDocument(createDefaultPartAnimation())
     setPartAnimCurrentTime(0)
     setPartAnimPlaying(false)
@@ -3104,20 +3176,24 @@ export default function PreviewModal({
       previewRef.current?.clearMeasure()
       setMeasureState({ pointCount: 0, distance: null, points: [] })
 
-      if (tab === 'render') {
+      if (tab === 'edit') {
         setPlacementMode(false)
         setPendingPlacement(null)
         setPlacementStart(null)
         setMaterialEditMode(true)
+        previewRef.current?.setPartAnimationPreviewEnabled(false, { preserveScenePose: true })
+        previewRef.current?.setPartAnimationPlaying(false)
+        setPartAnimPlaying(false)
         const meshUuid = selectedPartUuid ?? selectedModelPartUuid
         if (meshUuid) {
           const state = previewRef.current?.selectMesh(meshUuid, selectedMaterialIndex)
           setSelectedPartUuid(meshUuid)
+          setSelectedModelPartUuid(meshUuid)
           setMaterialSlots(previewRef.current?.listMaterials(meshUuid) ?? [])
           setMaterialState(state ?? null)
+          previewRef.current?.selectModelPart(meshUuid)
         }
         setMaterialHasUnsavedChanges(previewRef.current?.hasMaterialUnsavedChanges() ?? false)
-        syncPartAnimationPreviewMode()
         return
       }
 
@@ -3158,7 +3234,7 @@ export default function PreviewModal({
       previewRef.current?.setPartAnimationPreviewEnabled(false)
       previewRef.current?.setPartAnimationPlaying(false)
     },
-    [selectedModelPartUuid, selectedPartUuid, selectedMaterialIndex, syncPartAnimationPreviewMode, syncPartAnimationUi, syncTeachingStateUi]
+    [selectedModelPartUuid, selectedPartUuid, selectedMaterialIndex, syncPartAnimationUi, syncTeachingStateUi]
   )
 
   useEffect(() => {
@@ -3182,7 +3258,7 @@ export default function PreviewModal({
       return
     }
     previewRef.current?.selectModelPart(selectedModelPartUuid)
-  }, [materialEditMode, selectedModelPartUuid])
+  }, [materialEditMode, modelEditMode, selectedModelPartUuid])
 
   const handleMeshPartsReady = useCallback((parts: MeshPartInfo[]) => {
     setMeshParts(parts)
@@ -3750,6 +3826,11 @@ export default function PreviewModal({
           setAnimationGizmoMode('translate')
           return
         }
+        if (modelEditMode) {
+          event.preventDefault()
+          setModelEditTransformMode((prev) => (prev === 'translate' ? null : 'translate'))
+          return
+        }
         if (statesEditMode && editingTeachingStateId) {
           event.preventDefault()
           setTeachingTransformMode('translate')
@@ -3763,6 +3844,11 @@ export default function PreviewModal({
           setAnimationGizmoMode('rotate')
           return
         }
+        if (modelEditMode) {
+          event.preventDefault()
+          setModelEditTransformMode((prev) => (prev === 'rotate' ? null : 'rotate'))
+          return
+        }
         if (statesEditMode && editingTeachingStateId) {
           event.preventDefault()
           setTeachingTransformMode('rotate')
@@ -3770,9 +3856,22 @@ export default function PreviewModal({
         }
       }
 
+      if (!event.repeat && event.code === 'KeyR' && selectedModelPartUuid) {
+        if (modelEditMode) {
+          event.preventDefault()
+          setModelEditTransformMode((prev) => (prev === 'scale' ? null : 'scale'))
+          return
+        }
+        if (statesEditMode && editingTeachingStateId) {
+          event.preventDefault()
+          setTeachingTransformMode('scale')
+          return
+        }
+      }
+
       if (event.code !== 'Space' || event.repeat) return
 
-      if (animationEditMode || (sidebarTab === 'render' && hasPartAnimPlayback)) {
+      if (animationEditMode) {
         event.preventDefault()
         handlePartAnimTogglePlaying()
       }
@@ -3784,10 +3883,9 @@ export default function PreviewModal({
     animationEditMode,
     editingTeachingStateId,
     handlePartAnimTogglePlaying,
-    hasPartAnimPlayback,
+    modelEditMode,
     previewToolModeActive,
     selectedModelPartUuid,
-    sidebarTab,
     statesEditMode,
     handleOpenUvViewer
   ])
@@ -3797,6 +3895,15 @@ export default function PreviewModal({
     const timer = setTimeout(() => setUvViewerHint(''), 3000)
     return () => clearTimeout(timer)
   }, [uvViewerHint])
+
+  const handleResetSelectedModelPart = useCallback(() => {
+    if (!selectedModelPartUuid) return
+    previewRef.current?.resetSelectedPartTransform(selectedModelPartUuid)
+  }, [selectedModelPartUuid])
+
+  const handleResetAllModelParts = useCallback(() => {
+    previewRef.current?.resetAllPartTransforms()
+  }, [])
 
   const handleDeselectModelPart = useCallback(() => {
     setSelectedModelPartUuid(null)
@@ -3850,6 +3957,8 @@ export default function PreviewModal({
       setSelectedMaterialIndex(materialIndex)
       setMaterialSlots(previewRef.current?.listMaterials(meshUuid) ?? [])
       setMaterialState(state)
+      // 同步部件选中并挂载移动/旋转/缩放坐标轴（编辑模式下材质拾取也会走这里）
+      previewRef.current?.selectModelPart(meshUuid)
     },
     [selectedPartUuid, selectedMaterialIndex, handleDeselectModelPart]
   )
@@ -4388,6 +4497,7 @@ export default function PreviewModal({
               ref={previewRef}
               asset={asset}
               settings={previewSettings}
+              onPreviewSettingsChange={updatePreviewSettings}
               markers={isLibraryModel ? displayMarkers : []}
               selectedMarkerId={displaySelectedMarkerId}
               markerDragEnabled={isLibraryModel}
@@ -4404,6 +4514,8 @@ export default function PreviewModal({
               animationGizmoMode={animationGizmoMode}
               teachingStateEditMode={statesEditMode}
               teachingTransformMode={teachingTransformMode}
+              modelEditMode={modelEditMode}
+              modelEditTransformMode={modelEditTransformMode}
               selectedModelPartUuid={selectedModelPartUuid}
               selectedModelPartName={findModelPartName(selectedModelPartUuid)}
               partAnimationChannels={DEFAULT_PART_ANIMATION_CHANNELS}
@@ -4457,9 +4569,6 @@ export default function PreviewModal({
               activeTab={sidebarTab}
               onTabChange={handleSidebarTabChange}
               showStructureTab={isLibraryModel}
-              previewSettings={previewSettings}
-              onPreviewSettingsChange={updatePreviewSettings}
-              modelExtension={asset.extension}
               materialEditMode={materialEditMode}
               meshParts={meshParts}
               availableTextures={availableTextures}
@@ -4546,6 +4655,14 @@ export default function PreviewModal({
               onSaveTeachingState={(stateId) => void handleSaveTeachingState(stateId)}
               onPreviewTeachingState={(stateId) => void handlePreviewTeachingState(stateId)}
               onSetInitialTeachingState={handleSetInitialTeachingState}
+              modelEditTransformMode={modelEditTransformMode}
+              selectedEditPartName={
+                findModelPartName(selectedModelPartUuid) ??
+                (selectedModelPartUuid ? '未命名部件' : null)
+              }
+              onModelEditTransformModeChange={setModelEditTransformMode}
+              onResetSelectedModelPart={handleResetSelectedModelPart}
+              onResetAllModelParts={handleResetAllModelParts}
               documentManifest={documentManifest}
               documentBusy={documentBusy}
               documentError={documentError}
@@ -4554,25 +4671,6 @@ export default function PreviewModal({
               onDeleteDocument={(documentId) => void handleDeleteDocument(documentId)}
             />
           </div>
-          {sidebarTab === 'render' && hasPartAnimPlayback && (
-            <AnimationTimeline
-              mode="playback"
-              disabled={previewToolModeActive}
-              document={partAnimDocument}
-              currentTime={partAnimCurrentTime}
-              playing={partAnimPlaying}
-              selectedMeshUuid={null}
-              markers={partAnimMarkers}
-              activeStageId={activePartAnimStageId}
-              onSetTime={handlePartAnimSetTime}
-              onTogglePlaying={handlePartAnimTogglePlaying}
-              onStop={handlePartAnimStop}
-              onAddKeyframe={() => {}}
-              onRemoveKeyframeAtCurrent={() => {}}
-              onSelectKeyframe={(_meshUuid, _channel, time) => handlePartAnimSetTime(time)}
-              onSelectStage={handleSelectPartAnimStage}
-            />
-          )}
           {animationEditMode && (
             <AnimationTimeline
               disabled={previewToolModeActive}

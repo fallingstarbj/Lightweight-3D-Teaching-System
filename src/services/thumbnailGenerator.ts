@@ -111,10 +111,20 @@ export async function getOrGenerateThumbnail(
   formatExtension?: string,
   options?: { skipCache?: boolean; libraryId?: string }
 ): Promise<string | null> {
+  const libraryId = options?.libraryId
+  if (libraryId && typeof window.electronAPI.getCustomThumbnail === 'function') {
+    try {
+      const custom = await window.electronAPI.getCustomThumbnail(libraryId)
+      if (custom) return custom
+    } catch {
+      /* fall through to auto thumbnail */
+    }
+  }
+
   const effectiveSettingsKey = await resolveModelThumbnailSettingsKey(
     filePath,
     settingsKey,
-    options?.libraryId
+    libraryId
   )
   const failureKey = thumbnailFailureKey(filePath, mtimeMs, effectiveSettingsKey)
 
@@ -135,7 +145,7 @@ export async function getOrGenerateThumbnail(
       mtimeMs,
       settingsKey: effectiveSettingsKey,
       formatExtension,
-      libraryId: options?.libraryId,
+      libraryId,
       resolve
     })
     processQueue()

@@ -17,19 +17,21 @@ import {
   getUnsupportedPreviewMessage
 } from '../types'
 import AssetThumbnail from './AssetThumbnail'
+import PackAssetName from './PackAssetName'
 import { PackAssetMeta } from './DataPackPanel'
 import { loadModelFromPath, computeModelStats } from '../services/modelLoader'
 import { getImageStats } from '../services/imageLoader'
 import { getAudioStats, getVideoStats } from '../services/mediaLoader'
 import { yieldToMain } from '../utils/async'
 import { formatModelLength } from '../utils/modelUnits'
-import { getStoredPreviewSettings } from '../utils/previewSettings'
+import { getStoredPreviewSettings, requestThumbnailRefresh } from '../utils/previewSettings'
 
 interface InfoPanelProps {
   asset: AssetFile | null
   onPreview: (asset: AssetFile) => void
   onOpenInExplorer: (path: string) => void
   onDelete?: (asset: LibraryAsset) => void
+  onRename?: (asset: LibraryAsset, nextName: string) => Promise<void>
 }
 
 function getPreviewButtonLabel(asset: AssetFile, unsupportedMsg: string | null): string {
@@ -49,13 +51,37 @@ export default function InfoPanel({
   asset,
   onPreview,
   onOpenInExplorer,
-  onDelete
+  onDelete,
+  onRename
 }: InfoPanelProps): JSX.Element {
   const [modelStats, setModelStats] = useState<ModelStats | null>(null)
   const [imageStats, setImageStats] = useState<ImageStats | null>(null)
   const [audioStats, setAudioStats] = useState<AudioStats | null>(null)
   const [videoStats, setVideoStats] = useState<VideoStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [hasCustomThumb, setHasCustomThumb] = useState(false)
+  const [thumbBusy, setThumbBusy] = useState(false)
+
+  useEffect(() => {
+    setRenaming(false)
+  }, [asset?.path])
+
+  useEffect(() => {
+    if (!asset || !isLibraryAsset(asset) || asset.kind !== 'model') {
+      setHasCustomThumb(false)
+      return
+    }
+
+    let cancelled = false
+    void window.electronAPI.hasCustomThumbnail(asset.libraryId).then((exists) => {
+      if (!cancelled) setHasCustomThumb(exists)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [asset?.path, asset && isLibraryAsset(asset) ? asset.libraryId : null, asset?.kind])
 
   useEffect(() => {
     if (!asset) {
@@ -142,11 +168,25 @@ export default function InfoPanel({
   return (
     <aside className="info-panel">
       <div className="info-panel-header">
-        <div className="info-panel-title">{asset.name}</div>
+        {fromLibrary && onRename ? (
+          <PackAssetName
+            name={asset.name}
+            className="info-panel-title"
+            editable
+            editing={renaming}
+            onEditingChange={setRenaming}
+            onRename={(nextName) => onRename(asset, nextName)}
+          />
+        ) : (
+          <div className="info-panel-title">{asset.name}</div>
+        )}
         <div className="info-panel-tags">
           <span className={`kind-badge kind-${asset.kind}`}>{getKindLabel(asset.kind)}</span>
           <span className="info-panel-ext">{getExtensionLabel(asset.extension)}</span>
           {fromLibrary && <span className="library-badge">数据包</span>}
+          {fromLibrary && isModel && hasCustomThumb && (
+            <span className="library-badge">自定义缩略图</span>
+          )}
         </div>
       </div>
 
@@ -328,6 +368,71 @@ export default function InfoPanel({
               <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
             </svg>
             打开文件位置
+          </button>
+        )}
+        {fromLibrary && onRename && (
+          <button
+            className="info-action-btn secondary"
+            type="button"
+            onClick={() => setRenaming(true)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+            </svg>
+            重命名
+          </button>
+        )}
+        {fromLibrary && isModel && (
+          <button
+            className="info-action-btn secondary"
+            type="button"
+            disabled={thumbBusy}
+            onClick={() => {
+              if (!isLibraryAsset(asset)) return
+              setThumbBusy(true)
+              void window.electronAPI
+                .selectAndSetCustomThumbnail(asset.libraryId)
+                .then((url) => {
+                  if (!url) return
+                  setHasCustomThumb(true)
+                  requestThumbnailRefresh(asset.path)
+                })
+                .catch((error: unknown) => {
+                  window.alert(error instanceof Error ? error.message : '设置缩略图失败')
+                })
+                .finally(() => setThumbBusy(false))
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
+            {thumbBusy ? '处理中…' : '设置缩略图'}
+          </button>
+        )}
+        {fromLibrary && isModel && hasCustomThumb && (
+          <button
+            className="info-action-btn secondary"
+            type="button"
+            disabled={thumbBusy}
+            onClick={() => {
+              if (!isLibraryAsset(asset)) return
+              setThumbBusy(true)
+              void window.electronAPI
+                .clearCustomThumbnail(asset.libraryId)
+                .then(() => {
+                  setHasCustomThumb(false)
+                  requestThumbnailRefresh(asset.path)
+                })
+                .catch((error: unknown) => {
+                  window.alert(error instanceof Error ? error.message : '恢复缩略图失败')
+                })
+                .finally(() => setThumbBusy(false))
+            }}
+          >
+            恢复默认缩略图
           </button>
         )}
         {fromLibrary && onDelete && (

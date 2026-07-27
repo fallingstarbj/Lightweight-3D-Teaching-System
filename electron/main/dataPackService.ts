@@ -770,6 +770,39 @@ export async function activateDataPack(packId: string, licenseKey: string): Prom
   return getPackLicenseStatus(packId)
 }
 
+export async function renamePackAsset(
+  packId: string,
+  libraryId: string,
+  newName: string
+): Promise<LibraryAsset | null> {
+  const manifest = await requireActivatedPackManifest(packId)
+  const record = manifest.models.find((item) => item.id === libraryId)
+  if (!record) {
+    throw new Error('未找到该资产')
+  }
+
+  const normalized = normalizeAssetDisplayName(newName, record.extension)
+  if (normalized === record.name) {
+    return recordToAsset(packId, manifest.name, record)
+  }
+
+  const folderId = normalizeFolderId(record.folderId)
+  const conflict = manifest.models.some(
+    (item) =>
+      item.id !== libraryId &&
+      normalizeFolderId(item.folderId) === folderId &&
+      item.name === normalized
+  )
+  if (conflict) {
+    throw new Error('同文件夹下已存在同名资产')
+  }
+
+  record.name = normalized
+  record.modifiedTime = Date.now()
+  await writePackManifest(packId, manifest)
+  return recordToAsset(packId, manifest.name, record)
+}
+
 export async function removePackAsset(packId: string, libraryId: string): Promise<boolean> {
   await initDataPacks()
 
@@ -796,6 +829,13 @@ export async function removePackAsset(packId: string, libraryId: string): Promis
   const encryptedPath = join(filesDir, getLibraryModelStorageFileName(record.id))
   if (existsSync(encryptedPath)) {
     await unlink(encryptedPath)
+  }
+
+  try {
+    const { clearCustomThumbnail } = await import('./customThumbnailService')
+    await clearCustomThumbnail(libraryId)
+  } catch {
+    /* ignore custom thumb cleanup errors */
   }
 
   await deleteModelMarkers(libraryId)
@@ -1263,6 +1303,23 @@ function resolveUniqueAssetName(baseName: string, siblingNames: Set<string>): st
     }
     counter += 1
   }
+}
+
+/** 规范化显示名：去首尾空白与路径分隔符，并保留原扩展名 */
+function normalizeAssetDisplayName(input: string, extension: string): string {
+  const cleaned = input.trim().replace(/[\\/]/g, '')
+  if (!cleaned) {
+    throw new Error('名称不能为空')
+  }
+
+  const ext = extension.replace(/^\./, '').toLowerCase()
+  if (!ext) return cleaned
+
+  const lower = cleaned.toLowerCase()
+  if (lower.endsWith(`.${ext}`)) return cleaned
+
+  const stem = cleaned.replace(/\.[^.]+$/, '') || cleaned
+  return `${stem}.${ext}`
 }
 
 async function importSingleAssetToPack(

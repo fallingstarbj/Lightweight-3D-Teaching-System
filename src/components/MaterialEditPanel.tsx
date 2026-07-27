@@ -80,7 +80,7 @@ export default function MaterialEditPanel({
           <div className="material-edit-panel-desc">
             {materialEditMode
               ? '点击模型零部件进行编辑'
-              : '点击右侧「渲染」标签进入编辑模式'}
+              : '点击右侧「编辑」标签进入编辑模式'}
           </div>
           {canSaveMaterials && (materialSaving || materialSaveError) && (
             <div className="material-edit-save-row">
@@ -105,6 +105,7 @@ export default function MaterialEditPanel({
         </div>
       ) : (
         <>
+          <div className="material-edit-panel-title embedded-title">材质编辑</div>
           <div className="material-edit-panel-desc embedded-desc">
             点击模型零部件进行编辑
           </div>

@@ -85,7 +85,7 @@ export default function TeachingStatePanel({
     <div className="teaching-state-panel">
       {!embedded && <div className="teaching-state-panel-title">教学状态</div>}
       <div className="teaching-state-panel-desc embedded-desc">
-        1. 输入名称新建状态 → 2. 选中部件并拖动变换手柄（左键变换，右键旋转视角；可切「渲染」改材质）→ 3. 点击「保存」。
+        1. 输入名称新建状态 → 2. 选中部件并拖动变换手柄（左键拖动手柄变换，空白处左键旋转视角；可切「编辑」改材质）→ 3. 点击「保存」。
       </div>
 
       <div className="teaching-state-create-form">

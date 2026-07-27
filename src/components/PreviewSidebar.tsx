@@ -1,26 +1,22 @@
 import type { ReactNode } from 'react'
-import PreviewSettingsPanel from './PreviewSettingsPanel'
 import MaterialEditPanel from './MaterialEditPanel'
 import ModelMarkerPanel from './ModelMarkerPanel'
 import PartAnimationPanel from './PartAnimationPanel'
 import TeachingStatePanel, { type TeachingTransformMode } from './TeachingStatePanel'
 import ModelDocumentPanel from './ModelDocumentPanel'
-import type { PreviewSettings } from '../utils/previewSettings'
+import ModelEditPanel, { type ModelEditTransformMode } from './ModelEditPanel'
 import type { MaterialEditPatch, MaterialEditState, MaterialSlotInfo, MeshPartInfo, PbrMapSlot, TextureOption } from '../services/modelMaterialEdit'
 import type { MarkerCollection, ModelMarker, ModelMarkerKind } from '../types/marker'
 import type { PartAnimationDocument } from '../types/partAnimation'
 import type { ModelTeachingStateDocument } from '../types/modelTeachingState'
 import type { ModelDocumentManifest } from '../types/modelDocument'
 
-export type PreviewSidebarTab = 'render' | 'structure' | 'animation' | 'states' | 'documents'
+export type PreviewSidebarTab = 'edit' | 'structure' | 'animation' | 'states' | 'documents'
 
 interface PreviewSidebarProps {
   activeTab: PreviewSidebarTab
   onTabChange: (tab: PreviewSidebarTab) => void
   showStructureTab: boolean
-  previewSettings: PreviewSettings
-  onPreviewSettingsChange: (partial: Partial<PreviewSettings>) => void
-  modelExtension?: string | null
   materialEditMode: boolean
   meshParts: MeshPartInfo[]
   availableTextures: TextureOption[]
@@ -117,6 +113,11 @@ interface PreviewSidebarProps {
   onSaveTeachingState: (stateId: string) => void
   onPreviewTeachingState: (stateId: string) => void
   onSetInitialTeachingState: (stateId: string) => void
+  modelEditTransformMode: ModelEditTransformMode
+  selectedEditPartName: string | null
+  onModelEditTransformModeChange: (mode: ModelEditTransformMode) => void
+  onResetSelectedModelPart: () => void
+  onResetAllModelParts: () => void
   documentManifest: ModelDocumentManifest
   documentBusy: boolean
   documentError: string
@@ -126,7 +127,7 @@ interface PreviewSidebarProps {
 }
 
 const TABS: Array<{ id: PreviewSidebarTab; label: string; requiresLibrary?: boolean }> = [
-  { id: 'render', label: '渲染' },
+  { id: 'edit', label: '编辑' },
   { id: 'animation', label: '动画', requiresLibrary: true },
   { id: 'states', label: '状态', requiresLibrary: true },
   { id: 'documents', label: '文档', requiresLibrary: true },
@@ -162,9 +163,6 @@ export default function PreviewSidebar({
   activeTab,
   onTabChange,
   showStructureTab,
-  previewSettings,
-  onPreviewSettingsChange,
-  modelExtension = null,
   materialEditMode,
   meshParts,
   availableTextures,
@@ -250,6 +248,11 @@ export default function PreviewSidebar({
   onSaveTeachingState,
   onPreviewTeachingState,
   onSetInitialTeachingState,
+  modelEditTransformMode,
+  selectedEditPartName,
+  onModelEditTransformModeChange,
+  onResetSelectedModelPart,
+  onResetAllModelParts,
   documentManifest,
   documentBusy,
   documentError,
@@ -273,15 +276,17 @@ export default function PreviewSidebar({
       </div>
 
       <div className="preview-sidebar-content">
-        <TabPanel active={activeTab === 'render'}>
-          <div className="preview-sidebar-render-panel">
-            <PreviewSettingsPanel
+        <TabPanel active={activeTab === 'edit'}>
+          <div className="preview-sidebar-edit-panel">
+            <ModelEditPanel
               embedded
-              settings={previewSettings}
-              onChange={onPreviewSettingsChange}
-              modelExtension={modelExtension}
+              transformMode={modelEditTransformMode}
+              selectedPartName={selectedEditPartName}
+              onTransformModeChange={onModelEditTransformModeChange}
+              onResetSelectedPart={onResetSelectedModelPart}
+              onResetAllParts={onResetAllModelParts}
             />
-            <div className="preview-sidebar-render-divider" aria-hidden="true" />
+            <div className="preview-sidebar-edit-divider" aria-hidden="true" />
             <MaterialEditPanel
               embedded
               materialEditMode={materialEditMode}

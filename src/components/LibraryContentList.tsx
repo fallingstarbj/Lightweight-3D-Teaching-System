@@ -3,6 +3,7 @@ import type { LibraryAsset } from '../types/library'
 import type { LibraryFolderView } from '../types/packLibrary'
 import { formatFileSize, formatDate, getExtensionLabel, getKindLabel } from '../types'
 import AssetThumbnail from './AssetThumbnail'
+import PackAssetName from './PackAssetName'
 
 interface LibraryContentListProps {
   folders: LibraryFolderView[]
@@ -13,6 +14,7 @@ interface LibraryContentListProps {
   onOpenFolder: (folderId: string) => void
   onSelectAsset: (asset: LibraryAsset, event: MouseEvent) => void
   onOpenAsset: (asset: LibraryAsset) => void
+  onRenameAsset?: (asset: LibraryAsset, nextName: string) => Promise<void>
 }
 
 function FolderIcon(): JSX.Element {
@@ -31,7 +33,8 @@ export default function LibraryContentList({
   onSelectFolder,
   onOpenFolder,
   onSelectAsset,
-  onOpenAsset
+  onOpenAsset,
+  onRenameAsset
 }: LibraryContentListProps): JSX.Element {
   const selectedSet = new Set(selectedAssetPaths)
 
@@ -86,9 +89,14 @@ export default function LibraryContentList({
                 libraryId={asset.kind === 'model' ? asset.libraryId : undefined}
               />
             </div>
-            <div className="asset-list-name" title={asset.name}>
-              {asset.name}
-            </div>
+            <PackAssetName
+              name={asset.name}
+              className="asset-list-name"
+              editable={!!onRenameAsset}
+              onRename={
+                onRenameAsset ? (nextName) => onRenameAsset(asset, nextName) : undefined
+              }
+            />
             <div className="asset-list-kind">{getKindLabel(asset.kind)}</div>
             <div className="asset-list-ext">{getExtensionLabel(asset.extension)}</div>
             <div className="asset-list-size">{formatFileSize(asset.size)}</div>

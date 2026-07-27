@@ -533,6 +533,22 @@ export default function App(): JSX.Element {
     [handleDeletePackAssets]
   )
 
+  const handleRenamePackAsset = useCallback(
+    async (asset: LibraryAsset, nextName: string) => {
+      const renamed = await window.electronAPI.renamePackAsset(
+        asset.packId,
+        asset.libraryId,
+        nextName
+      )
+      if (!renamed) {
+        throw new Error('重命名失败：未找到该资产')
+      }
+      await loadLibraryAssets()
+      setLibraryNotice(`已重命名为「${renamed.name}」`)
+    },
+    [loadLibraryAssets]
+  )
+
   const handleCreatePackFolder = useCallback(async () => {
     if (!libraryCurrentPackId) return
     const trimmed = newPackFolderName.trim()
@@ -1047,6 +1063,7 @@ export default function App(): JSX.Element {
                         onOpenFolder={handleGoLibraryFolder}
                         onSelectAsset={handleSelectLibraryContentAsset}
                         onOpenAsset={handleOpenPreview}
+                        onRenameAsset={handleRenamePackAsset}
                       />
                     ) : (
                       <LibraryContentList
@@ -1058,6 +1075,7 @@ export default function App(): JSX.Element {
                         onOpenFolder={handleGoLibraryFolder}
                         onSelectAsset={handleSelectLibraryContentAsset}
                         onOpenAsset={handleOpenPreview}
+                        onRenameAsset={handleRenamePackAsset}
                       />
                     )
                   ) : viewMode === 'grid' ? (
@@ -1091,6 +1109,7 @@ export default function App(): JSX.Element {
                     onPreview={handleOpenPreview}
                     onOpenInExplorer={handleOpenInExplorer}
                     onDelete={handleDeletePackAsset}
+                    onRename={handleRenamePackAsset}
                   />
                 ) : libraryCurrentPackId && libraryInnerFolderId === null ? (
                   <PackFolderInfoPanel

@@ -3,6 +3,7 @@ import type { LibraryAsset } from '../types/library'
 import type { LibraryFolderView } from '../types/packLibrary'
 import { formatFileSize, getExtensionLabel, getKindLabel } from '../types'
 import AssetThumbnail from './AssetThumbnail'
+import PackAssetName from './PackAssetName'
 
 interface LibraryContentGridProps {
   folders: LibraryFolderView[]
@@ -13,6 +14,7 @@ interface LibraryContentGridProps {
   onOpenFolder: (folderId: string) => void
   onSelectAsset: (asset: LibraryAsset, event: MouseEvent) => void
   onOpenAsset: (asset: LibraryAsset) => void
+  onRenameAsset?: (asset: LibraryAsset, nextName: string) => Promise<void>
 }
 
 function FolderIcon(): JSX.Element {
@@ -31,7 +33,8 @@ export default function LibraryContentGrid({
   onSelectFolder,
   onOpenFolder,
   onSelectAsset,
-  onOpenAsset
+  onOpenAsset,
+  onRenameAsset
 }: LibraryContentGridProps): JSX.Element {
   const selectedSet = new Set(selectedAssetPaths)
 
@@ -91,9 +94,14 @@ export default function LibraryContentGrid({
               </span>
             </div>
             <div className="asset-card-info">
-              <div className="asset-card-name" title={asset.name}>
-                {asset.name}
-              </div>
+              <PackAssetName
+                name={asset.name}
+                className="asset-card-name"
+                editable={!!onRenameAsset}
+                onRename={
+                  onRenameAsset ? (nextName) => onRenameAsset(asset, nextName) : undefined
+                }
+              />
               <div className="asset-card-meta">
                 {getKindLabel(asset.kind)} · {formatFileSize(asset.size)}
               </div>
