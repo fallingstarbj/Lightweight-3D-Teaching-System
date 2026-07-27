@@ -49,7 +49,7 @@ const PACK_MAGIC = Buffer.from('3DAMPACK\0', 'ascii')
 /** 旧版自动迁移包，启动时自动移除 */
 const LEGACY_PACK_ID = 'legacy-pack-v1'
 
-const MODEL_EXTENSIONS = new Set(['.gltf', '.glb', '.obj', '.fbx', '.3ds', '.stl', '.max'])
+const MODEL_EXTENSIONS = new Set(['.gltf', '.glb', '.obj', '.fbx', '.3ds', '.stl'])
 const TEXTURE_EXTENSIONS = new Set([
   '.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.tif', '.tga', '.ico', '.svg', '.exr', '.hdr'
 ])
@@ -1413,7 +1413,6 @@ export async function selectAndImportPackAssets(
           'fbx',
           '3ds',
           'stl',
-          'max',
           'jpg',
           'jpeg',
           'png',

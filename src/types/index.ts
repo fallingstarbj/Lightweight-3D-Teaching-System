@@ -61,7 +61,7 @@ export interface LibraryPackFolder {
 
 export const MAX_MODEL_IMPORT_SIZE_MB = 150
 
-export const MODEL_EXTENSIONS = ['gltf', 'glb', 'obj', 'fbx', '3ds', 'stl', 'max'] as const
+export const MODEL_EXTENSIONS = ['gltf', 'glb', 'obj', 'fbx', '3ds', 'stl'] as const
 
 /** 可在应用内直接 3D 预览的模型格式 */
 export const PREVIEWABLE_MODEL_EXTENSIONS = ['gltf', 'glb', 'obj', 'fbx', '3ds', 'stl'] as const
@@ -156,11 +156,7 @@ export function isAssetPreviewSupported(asset: AssetFile): boolean {
   return false
 }
 
-export function getUnsupportedPreviewMessage(extension: string): string | null {
-  const ext = extension.toLowerCase()
-  if (ext === 'max') {
-    return '3ds Max 原生 .max 文件为 Autodesk 专有格式，无法直接预览。请在 3ds Max 中导出为 FBX、GLB 或 OBJ 后再查看。'
-  }
+export function getUnsupportedPreviewMessage(_extension: string): string | null {
   return null
 }
 

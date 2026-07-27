@@ -9,7 +9,6 @@ import {
   loadModelFromPath,
   centerAndScaleObject,
   setupDefaultMaterials,
-  waitForModelTextures,
   createPreviewScene,
   frameCameraToBox,
   simplifyMeshForThumbnail,
@@ -40,9 +39,16 @@ import {
 import { getLibraryIdFromModelPath, isMaterialOverrideApiReady } from '../utils/materialOverrideApi'
 
 const THUMB_SIZE = 256
-const THUMBNAIL_TIMEOUT_MS = 90_000
+const THUMBNAIL_TIMEOUT_MS = 60_000
 const MAX_CONCURRENT_THUMBNAILS = 2
 const THUMB_JPEG_QUALITY = 0.82
+
+/** 记录生成失败的缩略图，避免反复重试导致一直转圈 */
+const failedThumbnailKeys = new Set<string>()
+
+function thumbnailFailureKey(filePath: string, mtimeMs: number, settingsKey: string): string {
+  return `${filePath.replace(/\\/g, '/').toLowerCase()}|${mtimeMs}|${settingsKey}`
+}
 
 const appearanceSuffixCache = new Map<string, { suffix: string; at: number }>()
 const APPEARANCE_SUFFIX_TTL_MS = 30_000
@@ -110,6 +116,13 @@ export async function getOrGenerateThumbnail(
     settingsKey,
     options?.libraryId
   )
+  const failureKey = thumbnailFailureKey(filePath, mtimeMs, effectiveSettingsKey)
+
+  if (options?.skipCache) {
+    failedThumbnailKeys.delete(failureKey)
+  } else if (failedThumbnailKeys.has(failureKey)) {
+    return null
+  }
 
   if (!options?.skipCache) {
     const cached = await window.electronAPI.getThumbnail(filePath, mtimeMs, effectiveSettingsKey)
@@ -131,6 +144,7 @@ export async function getOrGenerateThumbnail(
 
 async function processThumbnailItem(item: (typeof queue)[number]): Promise<void> {
   const epoch = thumbnailGenerationEpoch
+  const failureKey = thumbnailFailureKey(item.filePath, item.mtimeMs, item.settingsKey)
   try {
     const dataUrl = await withTimeout(
       generateThumbnail(item.filePath, item.settingsKey, item.formatExtension, item.libraryId, epoch),
@@ -149,11 +163,16 @@ async function processThumbnailItem(item: (typeof queue)[number]): Promise<void>
         dataUrl,
         item.settingsKey
       )
+      failedThumbnailKeys.delete(failureKey)
       item.resolve(isThumbnailGenerationCancelled(epoch) ? null : savedUrl || dataUrl)
       return
     }
+    failedThumbnailKeys.add(failureKey)
     item.resolve(null)
   } catch {
+    if (!isThumbnailGenerationCancelled(epoch)) {
+      failedThumbnailKeys.add(failureKey)
+    }
     item.resolve(null)
   }
 }
@@ -223,7 +242,8 @@ export async function generateModelThumbnail(
     canvas,
     antialias: false,
     preserveDrawingBuffer: true,
-    powerPreference: 'low-power'
+    powerPreference: 'low-power',
+    logarithmicDepthBuffer: true
   })
   renderer.setSize(THUMB_SIZE, THUMB_SIZE, false)
   renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -245,7 +265,7 @@ export async function generateModelThumbnail(
     }
 
     setupDefaultMaterials(object)
-    await waitForModelTextures(object)
+    // 缩略图不阻塞等待贴图；缺贴图时用默认材质也能出图
 
     const { root, box } = centerAndScaleObject(object, THUMBNAIL_MODEL_TARGET_SIZE)
     const nudgeBase = Math.max(...box.getSize(new THREE.Vector3()).toArray(), 0.001)

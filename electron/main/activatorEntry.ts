@@ -13,7 +13,7 @@ app.whenReady().then(() => {
       filters: [
         {
           name: '3D 模型',
-          extensions: ['gltf', 'glb', 'obj', 'fbx', '3ds', 'stl', 'max']
+          extensions: ['gltf', 'glb', 'obj', 'fbx', '3ds', 'stl']
         }
       ]
     })

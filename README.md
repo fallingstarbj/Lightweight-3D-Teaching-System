@@ -73,12 +73,6 @@ node node_modules/electron/install.js
 | STL  | `.stl`  | 3D 打印/CAD 常用，仅几何体；默认按 +X 轴朝上加载 |
 | 3DS  | `.3ds`  | 3D Studio 格式（3ds Max 可导出） |
 
-### 3D 模型（仅目录浏览）
-
-| 格式 | 扩展名 | 说明 |
-|------|--------|------|
-| 3ds Max | `.max` | Autodesk 专有二进制格式，**无法直接预览**。请在 3ds Max 中导出为 FBX、GLB 或 OBJ 后查看 |
-
 ### 贴图 / 图片
 
 | 格式 | 扩展名 | 说明 |

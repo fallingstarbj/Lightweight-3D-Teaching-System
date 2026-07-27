@@ -37,6 +37,7 @@ import {
   applyPreviewSettings,
   applyPreviewLighting,
   frameCameraToBox,
+  configureCameraDepthRange,
   resolvePreviewOptimization,
   computeMeshBoundingBox,
   computeStandardViewCamera,
@@ -2044,6 +2045,14 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
           camera.position.copy(anim.toCam)
           camera.up.copy(anim.toUp).normalize()
           focusAnimRef.current = null
+          const box = modelBoxRef.current
+          if (box && !box.isEmpty()) {
+            const radius = Math.max(box.getBoundingSphere(new THREE.Sphere()).radius, 0.001)
+            configureCameraDepthRange(camera, controls.target, radius, {
+              minDistance: controls.minDistance,
+              maxDistance: controls.maxDistance
+            })
+          }
         }
       }
 

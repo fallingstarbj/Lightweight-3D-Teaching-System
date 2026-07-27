@@ -15,7 +15,7 @@ import {
   type PackAssetRecord
 } from './dataPackService'
 
-const MODEL_EXTENSIONS = new Set(['.gltf', '.glb', '.obj', '.fbx', '.3ds', '.stl', '.max'])
+const MODEL_EXTENSIONS = new Set(['.gltf', '.glb', '.obj', '.fbx', '.3ds', '.stl'])
 const TEXTURE_EXTENSIONS = new Set([
   '.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.tif', '.tga', '.ico', '.svg', '.exr', '.hdr'
 ])

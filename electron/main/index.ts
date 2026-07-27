@@ -82,7 +82,7 @@ const activatorMode = isActivatorMode()
 // 避免 Chromium FFmpeg 在部分像素格式下硬解失败并刷屏报错
 app.commandLine.appendSwitch('disable-accelerated-video-decode')
 
-const MODEL_EXTENSIONS = new Set(['.gltf', '.glb', '.obj', '.fbx', '.3ds', '.stl', '.max'])
+const MODEL_EXTENSIONS = new Set(['.gltf', '.glb', '.obj', '.fbx', '.3ds', '.stl'])
 const TEXTURE_EXTENSIONS = new Set([
   '.jpg',
   '.jpeg',
@@ -258,7 +258,7 @@ if (activatorMode) {
     ipcMain.handle('builder-select-model-files', async () => {
       const result = await dialog.showOpenDialog({
         properties: ['openFile', 'multiSelections'],
-        filters: [{ name: '3D 模型', extensions: ['gltf', 'glb', 'obj', 'fbx', '3ds', 'stl', 'max'] }]
+        filters: [{ name: '3D 模型', extensions: ['gltf', 'glb', 'obj', 'fbx', '3ds', 'stl'] }]
       })
       if (result.canceled || result.filePaths.length === 0) return []
       return result.filePaths
@@ -813,7 +813,7 @@ ipcMain.handle('select-files', async () => {
       {
         name: '支持的资产',
         extensions: [
-          'gltf', 'glb', 'obj', 'fbx', '3ds', 'stl', 'max',
+          'gltf', 'glb', 'obj', 'fbx', '3ds', 'stl',
           'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif', 'tga', 'ico', 'svg', 'exr', 'hdr',
           'mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma',
           'mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v',

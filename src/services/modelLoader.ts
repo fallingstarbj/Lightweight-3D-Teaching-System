@@ -56,7 +56,7 @@ export async function loadModelFromPath(
       object = await loadOBJ(buffer, dir, fileName)
       break
     case '.fbx':
-      object = await loadFBX(buffer, dir)
+      object = await loadFBX(buffer, dir, { lightweight: options?.lightweight })
       break
     case '.3ds':
       object = await load3DS(buffer, dir)
@@ -64,21 +64,27 @@ export async function loadModelFromPath(
     case '.stl':
       object = await loadSTL(buffer, options?.upAxis ?? DEFAULT_STL_UP_AXIS)
       break
-    case '.max':
-      throw new Error('3ds Max .max 格式不支持直接预览')
     default:
       throw new Error(`Unsupported format: ${ext}`)
   }
 
   if (options?.lightweight) {
-    await waitForModelTextures(object)
-  } else {
-    await waitForModelTextures(object, { modelFilePath: filePath })
+    // 缩略图路径：不阻塞等待外部贴图，避免缺失/异常贴图导致一直转圈
+    return object
   }
+
+  await waitForModelTextures(object, { modelFilePath: filePath })
   return object
 }
 
-function createLocalLoadingManager(baseDir: string): {
+/** 1x1 透明 PNG，用于缩略图生成时占位，避免 FBX 外置贴图拖死加载 */
+const STUB_TEXTURE_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+
+function createLocalLoadingManager(
+  baseDir: string,
+  options?: { stubTextures?: boolean }
+): {
   manager: THREE.LoadingManager
   done: Promise<void>
 } {
@@ -89,21 +95,26 @@ function createLocalLoadingManager(baseDir: string): {
   const settleDone = (): void => resolveDone()
 
   const manager = new THREE.LoadingManager(settleDone, undefined, settleDone)
-  manager.setURLModifier((url) => resolveLocalResourceUrl(url, baseDir))
+  manager.setURLModifier((url) => {
+    if (url.startsWith('data:') || url.startsWith('blob:')) return url
+    if (options?.stubTextures) return STUB_TEXTURE_DATA_URL
+    return resolveLocalResourceUrl(url, baseDir)
+  })
   manager.addHandler(/\.tga$/i, new TGALoader(manager))
   return { manager, done }
 }
 
 async function awaitLoadingManagerIdle(
   manager: THREE.LoadingManager,
-  done: Promise<void>
+  done: Promise<void>,
+  timeoutMs = 60_000
 ): Promise<void> {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   if (manager.itemsTotal === 0) return
   if (manager.itemsTotal === manager.itemsLoaded) return
   await Promise.race([
     done,
-    new Promise<void>((resolve) => setTimeout(resolve, 60_000))
+    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))
   ])
 }
 
@@ -169,7 +180,7 @@ function collectModelTextures(object: THREE.Object3D): Set<THREE.Texture> {
 }
 
 async function waitForTextureImage(texture: THREE.Texture): Promise<void> {
-  const deadline = Date.now() + 30_000
+  const deadline = Date.now() + 15_000
 
   while (Date.now() < deadline) {
     const image = texture.image as
@@ -198,14 +209,23 @@ async function waitForTextureImage(texture: THREE.Texture): Promise<void> {
       return
     }
 
+    const remaining = Math.max(0, deadline - Date.now())
     try {
-      await image.decode()
+      await Promise.race([
+        image.decode(),
+        new Promise<void>((_, reject) => {
+          setTimeout(() => reject(new Error('texture-decode-timeout')), remaining)
+        })
+      ])
       if (image.naturalWidth > 0) return
     } catch {
-      await new Promise<void>((resolve) => {
-        image.addEventListener('load', () => resolve(), { once: true })
-        image.addEventListener('error', () => resolve(), { once: true })
-      })
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          image.addEventListener('load', () => resolve(), { once: true })
+          image.addEventListener('error', () => resolve(), { once: true })
+        }),
+        new Promise<void>((resolve) => setTimeout(resolve, remaining))
+      ])
       return
     }
   }
@@ -343,14 +363,19 @@ function createGLTFLoader(baseDir: string): {
   return { loader: new GLTFLoader(manager), manager, done }
 }
 
-function createFBXLoader(baseDir: string): {
+function createFBXLoader(
+  baseDir: string,
+  options?: { stubTextures?: boolean }
+): {
   loader: FBXLoader
   manager: THREE.LoadingManager
   done: Promise<void>
 } {
-  const { manager, done } = createLocalLoadingManager(baseDir)
+  const { manager, done } = createLocalLoadingManager(baseDir, options)
   const loader = new FBXLoader(manager)
-  loader.setResourcePath(toLocalResourcePath(baseDir))
+  if (!options?.stubTextures) {
+    loader.setResourcePath(toLocalResourcePath(baseDir))
+  }
   return { loader, manager, done }
 }
 
@@ -400,12 +425,30 @@ async function loadOBJ(buffer: ArrayBuffer, baseDir: string, fileName: string): 
   return object
 }
 
-async function loadFBX(buffer: ArrayBuffer, baseDir: string): Promise<THREE.Object3D> {
+async function loadFBX(
+  buffer: ArrayBuffer,
+  baseDir: string,
+  options?: { lightweight?: boolean }
+): Promise<THREE.Object3D> {
   await yieldBeforeHeavyWork()
-  const { loader, manager, done } = createFBXLoader(baseDir)
-  const object = loader.parse(buffer, toLocalResourcePath(baseDir))
-  await awaitLoadingManagerIdle(manager, done)
-  await waitForModelTextures(object)
+  const lightweight = !!options?.lightweight
+  const { loader, manager, done } = createFBXLoader(baseDir, { stubTextures: lightweight })
+  const resourcePath = lightweight ? '' : toLocalResourcePath(baseDir)
+
+  let object: THREE.Object3D
+  try {
+    object = loader.parse(buffer, resourcePath)
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `FBX 解析失败：${detail}。该文件可能版本过旧、已损坏或含 Three.js 不支持的特性，请尝试重新导出为 FBX 7.4+ 二进制或 GLB。`
+    )
+  }
+
+  await awaitLoadingManagerIdle(manager, done, lightweight ? 8_000 : 60_000)
+  if (!lightweight) {
+    await waitForModelTextures(object)
+  }
   return object
 }
 
@@ -771,13 +814,19 @@ export function setupDefaultMaterials(object: THREE.Object3D): void {
       if (!child.material || (Array.isArray(child.material) && child.material.length === 0)) {
         child.material = new THREE.MeshPhongMaterial({
           color: 0x8899aa,
-          side: THREE.DoubleSide,
+          side: THREE.FrontSide,
           flatShading: true
         })
       } else {
         const mats = Array.isArray(child.material) ? child.material : [child.material]
         mats.forEach((mat) => {
-          if ('side' in mat) mat.side = THREE.DoubleSide
+          // 不透明材质强制 FrontSide，避免柜体共面薄板双面 z-fighting 闪烁
+          if ('side' in mat) {
+            const transparent = 'transparent' in mat && !!(mat as THREE.Material).transparent
+            if (!transparent) {
+              mat.side = THREE.FrontSide
+            }
+          }
 
           for (const { key, srgb } of textureSlots) {
             const texture = (mat as Record<string, unknown>)[key]
@@ -847,13 +896,15 @@ export function createPreviewScene(
 ): PreviewSceneObjects {
   const scene = new THREE.Scene()
 
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.001, 100000)
+  // near/far 过宽会导致深度缓冲精度不足，柜体共面贴图出现闪烁（z-fighting）
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.08, 200)
   camera.position.set(3, 2, 4)
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: false,
-    preserveDrawingBuffer: true
+    preserveDrawingBuffer: true,
+    logarithmicDepthBuffer: true
   })
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -892,6 +943,28 @@ export const THUMBNAIL_CAMERA_PADDING = 1.12
 /** 缩略图内模型视觉偏移（相对包围盒最大边，负 x 向左、正 y 向上） */
 export const THUMBNAIL_POSITION_NUDGE = { x: -0.06, y: 0.05, z: 0 }
 
+/** 按模型尺寸与观察距离收紧深度范围，减轻共面贴图 z-fighting */
+export function configureCameraDepthRange(
+  camera: THREE.PerspectiveCamera,
+  focus: THREE.Vector3,
+  radius: number,
+  options?: { minDistance?: number; maxDistance?: number }
+): void {
+  const minDistance = options?.minDistance ?? 0.5
+  const maxDistance = options?.maxDistance ?? 50
+  const safeRadius = Math.max(radius, 0.001)
+  const distance = Math.max(camera.position.distanceTo(focus), safeRadius)
+
+  // near 需小于 OrbitControls.minDistance，同时尽量大以保证深度精度
+  camera.near = Math.min(0.08, Math.max(0.04, minDistance * 0.15))
+  camera.far = Math.max(
+    distance + safeRadius * 12,
+    maxDistance + safeRadius * 6,
+    80
+  )
+  camera.updateProjectionMatrix()
+}
+
 export function frameCameraToBox(
   camera: THREE.PerspectiveCamera,
   box: THREE.Box3,
@@ -915,7 +988,7 @@ export function frameCameraToBox(
   const viewDir = new THREE.Vector3(1, 0.75, 1).normalize().multiplyScalar(distance)
   camera.position.copy(center).add(viewDir)
   camera.lookAt(center)
-  camera.updateProjectionMatrix()
+  configureCameraDepthRange(camera, center, radius)
 
   return center
 }
