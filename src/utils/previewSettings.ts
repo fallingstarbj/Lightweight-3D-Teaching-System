@@ -12,6 +12,16 @@ export interface PreviewSettings {
   lightElevation: number
   ambientIntensity: number
   keyLightIntensity: number
+  /** 主光（平行光）颜色 */
+  keyLightColor: string
+  /** 整体曝光（toneMappingExposure） */
+  exposure: number
+  /** 色温偏移 -100（冷）~ 100（暖），0 为中性 */
+  colorTemperature: number
+  /** 对比度 0.5 ~ 1.8，1 为原片 */
+  contrast: number
+  /** 饱和度 0 ~ 2，1 为原片 */
+  saturation: number
   /** STL 文件哪个轴向视为「朝上」；加载时旋转到场景 Y+ */
   stlUpAxis: StlUpAxis
 }
@@ -27,6 +37,11 @@ export const DEFAULT_PREVIEW_SETTINGS: PreviewSettings = {
   lightElevation: 55,
   ambientIntensity: 0.65,
   keyLightIntensity: 1.4,
+  keyLightColor: '#ffffff',
+  exposure: 1.2,
+  colorTemperature: 0,
+  contrast: 1,
+  saturation: 1,
   stlUpAxis: DEFAULT_STL_UP_AXIS
 }
 
@@ -34,11 +49,22 @@ export const MIN_LIGHT_ELEVATION = 5
 export const MAX_LIGHT_ELEVATION = 90
 export const MAX_KEY_LIGHT_INTENSITY = 3
 export const MAX_PANORAMA_BLUR = 1
+export const MIN_EXPOSURE = 0.2
+export const MAX_EXPOSURE = 3
+export const MIN_COLOR_TEMPERATURE = -100
+export const MAX_COLOR_TEMPERATURE = 100
+export const MIN_CONTRAST = 0.5
+export const MAX_CONTRAST = 1.8
+export const MIN_SATURATION = 0
+export const MAX_SATURATION = 2
 
 export const PREVIEW_SETTINGS_CHANGED_EVENT = '3dam-preview-settings-changed'
 export const THUMBNAIL_REFRESH_EVENT = '3dam-thumbnail-refresh'
+/** 退出 3D 预览后通知所有缩略图重新请求（优先命中缓存，不强制重绘） */
+export const THUMBNAIL_RESUME_EVENT = '3dam-thumbnail-resume'
 
-const MODEL_THUMBNAIL_PIPELINE_REVISION = '3'
+// 缩略图生成管线版本：修改生成逻辑后递增，使旧的磁盘缓存失效
+const MODEL_THUMBNAIL_PIPELINE_REVISION = '6'
 const TEXTURE_THUMBNAIL_CACHE_KEY = 'texture'
 const AUDIO_THUMBNAIL_CACHE_KEY = 'audio'
 const VIDEO_THUMBNAIL_CACHE_KEY = 'video'
@@ -51,18 +77,25 @@ export function requestThumbnailRefresh(filePath: string): void {
   window.dispatchEvent(new CustomEvent(THUMBNAIL_REFRESH_EVENT, { detail: { filePath } }))
 }
 
+export function requestThumbnailResume(): void {
+  window.dispatchEvent(new CustomEvent(THUMBNAIL_RESUME_EVENT))
+}
+
 function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-export function normalizeHexColor(value: string): string {
+export function normalizeHexColor(
+  value: string,
+  fallback: string = DEFAULT_PREVIEW_SETTINGS.backgroundColor
+): string {
   const trimmed = value.trim()
   if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toLowerCase()
   if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
     const hex = trimmed.slice(1)
     return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`.toLowerCase()
   }
-  return DEFAULT_PREVIEW_SETTINGS.backgroundColor
+  return fallback
 }
 
 function normalizePanoramaPath(value: unknown): string | null {
@@ -111,6 +144,30 @@ export function clampPreviewSettings(partial: Partial<PreviewSettings>): Preview
       0,
       MAX_KEY_LIGHT_INTENSITY
     ),
+    keyLightColor: normalizeHexColor(
+      partial.keyLightColor ?? DEFAULT_PREVIEW_SETTINGS.keyLightColor,
+      DEFAULT_PREVIEW_SETTINGS.keyLightColor
+    ),
+    exposure: clampNumber(
+      partial.exposure ?? DEFAULT_PREVIEW_SETTINGS.exposure,
+      MIN_EXPOSURE,
+      MAX_EXPOSURE
+    ),
+    colorTemperature: clampNumber(
+      partial.colorTemperature ?? DEFAULT_PREVIEW_SETTINGS.colorTemperature,
+      MIN_COLOR_TEMPERATURE,
+      MAX_COLOR_TEMPERATURE
+    ),
+    contrast: clampNumber(
+      partial.contrast ?? DEFAULT_PREVIEW_SETTINGS.contrast,
+      MIN_CONTRAST,
+      MAX_CONTRAST
+    ),
+    saturation: clampNumber(
+      partial.saturation ?? DEFAULT_PREVIEW_SETTINGS.saturation,
+      MIN_SATURATION,
+      MAX_SATURATION
+    ),
     stlUpAxis: isStlUpAxis(partial.stlUpAxis)
       ? partial.stlUpAxis
       : DEFAULT_PREVIEW_SETTINGS.stlUpAxis
@@ -151,6 +208,8 @@ export function getStoredPreviewSettings(): PreviewSettings {
 }
 
 export async function hydratePreviewSettingsFromDisk(): Promise<PreviewSettings> {
+  // memoryCache 在每次保存时都会更新，已水合后直接返回，避免用启动时的旧值覆盖界面
+  if (memoryCache) return memoryCache
   if (hydratePromise) return hydratePromise
 
   hydratePromise = (async () => {

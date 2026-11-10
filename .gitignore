@@ -3,6 +3,7 @@ node_modules/
 out/
 release/
 dist/
+*.tsbuildinfo
 
 # 环境与密钥
 .env
@@ -10,6 +11,7 @@ dist/
 
 # 可执行产物
 *.exe
+*.zip
 
 # 系统文件
 *.log
@@ -25,3 +27,7 @@ Thumbs.db
 resources/asset-library/files/
 resources/bundled-assets/*
 !resources/bundled-assets/.gitkeep
+
+# 临时冲突文件与无关导出物
+*_冲突文件_*
+website/

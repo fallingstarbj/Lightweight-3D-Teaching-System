@@ -3001,9 +3001,54 @@ select {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.preview-pdf-viewer-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+.preview-pdf-fullscreen-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.preview-pdf-fullscreen-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+.preview-pdf-fullscreen-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* 全屏时容器铺满屏幕，由 Fullscreen API 接管尺寸 */
+.preview-pdf-viewer:fullscreen {
+  background: #1a1a1e;
+}
+
+.preview-pdf-viewer:fullscreen .preview-pdf-frame {
+  flex: 1;
 }
 
 .preview-pdf-frame {
@@ -4673,18 +4718,73 @@ select {
   margin-bottom: 4px;
 }
 
+.material-edit-effects {
+  margin: 4px 0 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .material-edit-pbr-toggle {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  width: 100%;
+  margin-bottom: 12px;
   cursor: pointer;
   user-select: none;
 }
 
-.material-edit-pbr-toggle input {
+.material-edit-effects .material-edit-pbr-toggle {
+  margin-bottom: 14px;
+}
+
+.material-edit-effects .material-edit-pbr-toggle + .material-edit-pbr-toggle {
+  margin-top: 2px;
+}
+
+.material-edit-pbr-toggle input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-content: center;
+  width: 15px;
+  height: 15px;
   margin: 0;
-  accent-color: var(--accent);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.material-edit-pbr-toggle input[type='checkbox']::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  transform: scale(0);
+  transition: transform 0.12s ease;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  background: #fff;
+}
+
+.material-edit-pbr-toggle input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.material-edit-pbr-toggle input[type='checkbox']:checked::before {
+  transform: scale(1);
+}
+
+.material-edit-pbr-toggle input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.material-edit-pbr-toggle input[type='checkbox']:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .material-edit-pbr-maps.disabled .material-edit-texture-select,
@@ -5178,6 +5278,35 @@ select {
   margin-bottom: 8px;
 }
 
+.model-marker-color-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.model-marker-color-label {
+  flex: none;
+}
+
+.model-marker-color-input {
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.model-marker-color-value {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
 .model-marker-image-preview {
   width: 100%;
   max-height: 120px;
@@ -5195,10 +5324,48 @@ select {
   margin-top: 6px;
   border-radius: 6px;
   object-fit: contain;
+  cursor: zoom-in;
+}
+
+.marker-image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.78);
+  cursor: zoom-out;
+  animation: marker-lightbox-fade 0.15s ease;
+}
+
+.marker-image-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  background: #fff;
+}
+
+@keyframes marker-lightbox-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .model-marker-card.expanded .model-marker-card-image {
   display: block;
+}
+
+.model-marker-wrap.kind-image-text .model-marker-card-image {
+  display: block;
+  max-width: 120px;
+  max-height: 72px;
 }
 
 .model-marker-wrap.kind-image-text .model-marker-card-title {
@@ -5455,6 +5622,15 @@ select {
   font-size: 11px;
   line-height: 1.45;
   color: var(--text-muted);
+}
+
+.preview-settings-group-title {
+  margin: 14px 0 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .preview-setting-error {

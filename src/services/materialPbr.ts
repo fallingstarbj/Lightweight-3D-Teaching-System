@@ -185,6 +185,40 @@ export function convertToStandardMaterial(material: THREE.Material): THREE.MeshS
   return standard
 }
 
+export function convertToPhysicalMaterial(material: THREE.Material): THREE.MeshPhysicalMaterial {
+  if (material instanceof THREE.MeshStandardMaterial) {
+    const source = material instanceof THREE.MeshPhysicalMaterial ? material : null
+    const physical = new THREE.MeshPhysicalMaterial({
+      color: material.color.clone(),
+      opacity: material.opacity,
+      transparent: material.transparent,
+      side: material.side,
+      map: material.map,
+      normalMap: material.normalMap,
+      aoMap: material.aoMap,
+      emissive: material.emissive.clone(),
+      emissiveMap: material.emissiveMap,
+      metalness: material.metalness,
+      roughness: material.roughness,
+      alphaTest: material.alphaTest,
+      vertexColors: material.vertexColors,
+      flatShading: material.flatShading,
+      wireframe: material.wireframe
+    })
+    physical.name = material.name
+    physical.normalScale.copy(material.normalScale)
+    physical.emissiveIntensity = material.emissiveIntensity
+    if (source) {
+      physical.transmission = source.transmission
+      physical.thickness = source.thickness
+      physical.ior = source.ior
+    }
+    return physical
+  }
+
+  return convertToPhysicalMaterial(convertToStandardMaterial(material))
+}
+
 export function getMeshMaterials(mesh: THREE.Mesh): THREE.Material[] {
   return Array.isArray(mesh.material) ? mesh.material : [mesh.material]
 }
@@ -226,6 +260,27 @@ export function ensureMeshStandardMaterial(
   }
 
   return standard
+}
+
+export function ensureMeshPhysicalMaterial(
+  mesh: THREE.Mesh,
+  materialIndex: number
+): THREE.MeshPhysicalMaterial | null {
+  const materials = getMeshMaterials(mesh)
+  const material = materials[materialIndex]
+  if (!material || !isPbrUpgradableMaterial(material)) return null
+
+  if (material instanceof THREE.MeshPhysicalMaterial) {
+    return material
+  }
+
+  const physical = convertToPhysicalMaterial(material)
+  const previous = replaceMeshMaterial(mesh, materialIndex, physical)
+  if (previous && previous !== physical) {
+    previous.dispose()
+  }
+
+  return physical
 }
 
 export function getEditableMapSlots(material: THREE.Material): PbrMapSlot[] {

@@ -27,6 +27,8 @@ export interface ModelMarker {
   description?: string
   imagePath?: string
   meshName?: string
+  /** 箭头标注的自定义颜色（#RRGGBB），未设置时使用默认色 */
+  color?: string
   position: MarkerPoint3
   endPosition?: MarkerPoint3
   createdAt: number
@@ -38,8 +40,21 @@ export interface ModelMarkerInput {
   description?: string
   imagePath?: string
   meshName?: string
+  color?: string
   position: MarkerPoint3
   endPosition?: MarkerPoint3
+}
+
+export const DEFAULT_ARROW_COLOR = '#6c8cff'
+
+const MARKER_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/
+
+/** 校验并规范化标注颜色，非法值返回 undefined */
+export function normalizeMarkerColor(color: unknown): string | undefined {
+  if (typeof color !== 'string') return undefined
+  const trimmed = color.trim()
+  if (!MARKER_COLOR_PATTERN.test(trimmed)) return undefined
+  return trimmed.toLowerCase()
 }
 
 export const MARKER_KINDS: ModelMarkerKind[] = ['point', 'arrow', 'image-text']
@@ -89,6 +104,7 @@ export function normalizeModelMarker(raw: Partial<ModelMarker>): ModelMarker | n
     description: raw.description?.trim() || undefined,
     imagePath: typeof raw.imagePath === 'string' && raw.imagePath.trim() ? raw.imagePath.trim() : undefined,
     meshName: raw.meshName?.trim() || undefined,
+    color: normalizeMarkerColor(raw.color),
     position: { x: x!, y: y!, z: z! },
     createdAt: Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now()
   }

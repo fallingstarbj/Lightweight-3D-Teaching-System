@@ -68,6 +68,7 @@ export interface ElectronAPI {
     folderId?: string | null
   ) => Promise<ImportPackAssetsResult | null>
   activateDataPack: (packId: string, licenseKey: string) => Promise<PackLicenseStatus>
+  renameDataPack: (packId: string, newName: string) => Promise<boolean>
   uninstallDataPack: (packId: string) => Promise<boolean>
   removePackAsset: (packId: string, libraryId: string) => Promise<boolean>
   renamePackAsset: (
@@ -123,7 +124,7 @@ export interface ElectronAPI {
     patch: Partial<
       Pick<
         ModelMarker,
-        'name' | 'description' | 'position' | 'endPosition' | 'meshName' | 'kind' | 'imagePath'
+        'name' | 'description' | 'position' | 'endPosition' | 'meshName' | 'kind' | 'imagePath' | 'color'
       >
     >
   ) => Promise<ModelMarker | null>
@@ -215,6 +216,7 @@ const api: ElectronAPI = {
     ipcRenderer.invoke('select-and-import-pack-assets', packId, folderId),
   activateDataPack: (packId, licenseKey) =>
     ipcRenderer.invoke('activate-data-pack', packId, licenseKey),
+  renameDataPack: (packId, newName) => ipcRenderer.invoke('rename-data-pack', packId, newName),
   uninstallDataPack: (packId) => ipcRenderer.invoke('uninstall-data-pack', packId),
   removePackAsset: (packId, libraryId) =>
     ipcRenderer.invoke('remove-pack-asset', packId, libraryId),

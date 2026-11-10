@@ -15,6 +15,11 @@ export interface AppPreviewSettings {
   lightElevation: number
   ambientIntensity: number
   keyLightIntensity: number
+  keyLightColor: string
+  exposure: number
+  colorTemperature: number
+  contrast: number
+  saturation: number
   stlUpAxis: StlUpAxis
 }
 
@@ -29,6 +34,11 @@ const DEFAULT_SETTINGS: AppPreviewSettings = {
   lightElevation: 55,
   ambientIntensity: 0.65,
   keyLightIntensity: 1.4,
+  keyLightColor: '#ffffff',
+  exposure: 1.2,
+  colorTemperature: 0,
+  contrast: 1,
+  saturation: 1,
   stlUpAxis: '+x'
 }
 
@@ -54,15 +64,21 @@ function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function normalizeHexColor(value: unknown): string {
-  if (typeof value !== 'string') return DEFAULT_SETTINGS.backgroundColor
+function normalizeHexColor(value: unknown, fallback: string = DEFAULT_SETTINGS.backgroundColor): string {
+  if (typeof value !== 'string') return fallback
   const trimmed = value.trim()
   if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toLowerCase()
   if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
     const hex = trimmed.slice(1)
     return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`.toLowerCase()
   }
-  return DEFAULT_SETTINGS.backgroundColor
+  return fallback
+}
+
+/** 读取数值字段；仅在缺失/非有限数时用默认值，避免把合法的 0 吞掉 */
+function numberOr(value: unknown, fallback: number): number {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : fallback
 }
 
 export function normalizeAppPreviewSettings(partial: Partial<AppPreviewSettings> | null | undefined): AppPreviewSettings {
@@ -73,32 +89,41 @@ export function normalizeAppPreviewSettings(partial: Partial<AppPreviewSettings>
         ? DEFAULT_SETTINGS.backgroundPanoramaPath
         : normalizePreviewPanoramaPath(partial.backgroundPanoramaPath),
     backgroundPanoramaBlur: clampNumber(
-      Number(partial?.backgroundPanoramaBlur) || DEFAULT_SETTINGS.backgroundPanoramaBlur,
+      numberOr(partial?.backgroundPanoramaBlur, DEFAULT_SETTINGS.backgroundPanoramaBlur),
       0,
       1
     ),
     backgroundPanoramaRotation:
-      ((Number(partial?.backgroundPanoramaRotation) || DEFAULT_SETTINGS.backgroundPanoramaRotation) %
+      ((numberOr(partial?.backgroundPanoramaRotation, DEFAULT_SETTINGS.backgroundPanoramaRotation) %
         360 +
         360) %
-      360,
+      360),
     lightAzimuth:
-      ((Number(partial?.lightAzimuth) || DEFAULT_SETTINGS.lightAzimuth) % 360 + 360) % 360,
+      ((numberOr(partial?.lightAzimuth, DEFAULT_SETTINGS.lightAzimuth) % 360 + 360) % 360),
     lightElevation: clampNumber(
-      Number(partial?.lightElevation) || DEFAULT_SETTINGS.lightElevation,
+      numberOr(partial?.lightElevation, DEFAULT_SETTINGS.lightElevation),
       5,
       90
     ),
     ambientIntensity: clampNumber(
-      Number(partial?.ambientIntensity) || DEFAULT_SETTINGS.ambientIntensity,
+      numberOr(partial?.ambientIntensity, DEFAULT_SETTINGS.ambientIntensity),
       0,
       1
     ),
     keyLightIntensity: clampNumber(
-      Number(partial?.keyLightIntensity) || DEFAULT_SETTINGS.keyLightIntensity,
+      numberOr(partial?.keyLightIntensity, DEFAULT_SETTINGS.keyLightIntensity),
       0,
       3
     ),
+    keyLightColor: normalizeHexColor(partial?.keyLightColor, DEFAULT_SETTINGS.keyLightColor),
+    exposure: clampNumber(numberOr(partial?.exposure, DEFAULT_SETTINGS.exposure), 0.2, 3),
+    colorTemperature: clampNumber(
+      numberOr(partial?.colorTemperature, DEFAULT_SETTINGS.colorTemperature),
+      -100,
+      100
+    ),
+    contrast: clampNumber(numberOr(partial?.contrast, DEFAULT_SETTINGS.contrast), 0.5, 1.8),
+    saturation: clampNumber(numberOr(partial?.saturation, DEFAULT_SETTINGS.saturation), 0, 2),
     stlUpAxis: normalizeStlUpAxis(partial?.stlUpAxis)
   }
 }

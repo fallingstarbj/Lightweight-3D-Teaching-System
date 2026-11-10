@@ -1,6 +1,6 @@
 {
   "name": "3d-asset-manager",
-  "version": "1.0.0",
+  "version": "1.0.10",
   "description": "轻量化三维示教系统 - 浏览、预览与教学标注",
   "main": "./out/main/index.js",
   "scripts": {

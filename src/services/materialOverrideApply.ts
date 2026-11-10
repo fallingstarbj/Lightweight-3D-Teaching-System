@@ -10,6 +10,7 @@ import {
   applyNormalMapInverted,
   captureEditableMaterialMaps,
   configureMeshTextureWrapping,
+  ensureMeshPhysicalMaterial,
   ensureMeshStandardMaterial,
   getEditableMapSlots,
   getMeshMaterials,
@@ -18,6 +19,12 @@ import {
   readNormalMapInverted,
   setMaterialMapTexture
 } from './materialPbr'
+import {
+  DEFAULT_GLASS_STATE,
+  applyFlowEffect,
+  applyGlassEffect,
+  readMaterialEffects
+} from './materialEffects'
 
 function clearEditableMaterialMaps(material: THREE.Material): void {
   for (const slot of getEditableMapSlots(material)) {
@@ -151,6 +158,41 @@ function applyEntryScalars(material: THREE.Material, entry: MaterialOverrideEntr
   if (entry.normalMapInverted !== undefined && materialSupportsNormalMap(material)) {
     applyNormalMapInverted(material, entry.normalMapInverted)
   }
+  applyEntryEffects(material, entry)
+}
+
+function applyEntryEffects(material: THREE.Material, entry: MaterialOverrideEntry): void {
+  const effects = readMaterialEffects(material)
+  if (
+    entry.glass !== undefined ||
+    entry.glassThickness !== undefined ||
+    entry.glassColor !== undefined ||
+    entry.glassOpacity !== undefined ||
+    entry.glassIor !== undefined
+  ) {
+    applyGlassEffect(material, {
+      enabled: entry.glass ?? effects.glass,
+      thickness: entry.glassThickness ?? effects.glassThickness,
+      color: entry.glassColor ?? effects.glassColor,
+      opacity: entry.glassOpacity ?? effects.glassOpacity,
+      ior: entry.glassIor ?? effects.glassIor
+    })
+  }
+  if (
+    entry.flow !== undefined ||
+    entry.flowColor !== undefined ||
+    entry.flowSpeed !== undefined ||
+    entry.flowIntensity !== undefined ||
+    entry.flowDirection !== undefined
+  ) {
+    applyFlowEffect(material, {
+      enabled: entry.flow ?? effects.flow.enabled,
+      color: entry.flowColor ?? effects.flow.color,
+      speed: entry.flowSpeed ?? effects.flow.speed,
+      intensity: entry.flowIntensity ?? effects.flow.intensity,
+      direction: entry.flowDirection ?? effects.flow.direction
+    })
+  }
 }
 
 function applyEntryMaps(
@@ -201,7 +243,9 @@ export async function applyLibraryMaterialOverrides(
       entry.metalness != null ||
       entry.roughness != null ||
       !!(entry.maps?.map || entry.maps?.normalMap)
-    if (needsStandardMaterial) {
+    if (entry.glass === true) {
+      ensureMeshPhysicalMaterial(mesh, entry.materialIndex)
+    } else if (needsStandardMaterial) {
       ensureMeshStandardMaterial(mesh, entry.materialIndex)
     }
 
@@ -255,7 +299,9 @@ export async function applyMaterialOverrideEntries(
       entry.metalness != null ||
       entry.roughness != null ||
       !!(entry.maps?.map || entry.maps?.normalMap)
-    if (needsStandardMaterial) {
+    if (entry.glass === true) {
+      ensureMeshPhysicalMaterial(mesh, entry.materialIndex)
+    } else if (needsStandardMaterial) {
       ensureMeshStandardMaterial(mesh, entry.materialIndex)
     }
 

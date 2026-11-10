@@ -21,7 +21,7 @@ import {
   setStoredThumbnailScale,
   applyTheme
 } from './utils/preferences'
-import { hydratePreviewSettingsFromDisk } from './utils/previewSettings'
+import { hydratePreviewSettingsFromDisk, requestThumbnailResume } from './utils/previewSettings'
 import Toolbar from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import Breadcrumb from './components/Breadcrumb'
@@ -44,7 +44,11 @@ import AppearanceSettingsPanel from './components/AppearanceSettingsPanel'
 import StartupLoadingScreen from './components/StartupLoadingScreen'
 import type { PackFolderRecord } from './types/packLibrary'
 import { buildLibraryFolderViews, selectAssetRange } from './utils/packLibrary'
-import { cancelPendingThumbnails } from './services/thumbnailGenerator'
+import {
+  cancelPendingThumbnails,
+  pauseThumbnailGeneration,
+  resumeThumbnailGeneration
+} from './services/thumbnailGenerator'
 
 const KIND_SORT_ORDER: Record<AssetKind, number> = {
   model: 0,
@@ -398,12 +402,17 @@ export default function App(): JSX.Element {
 
   const handleOpenPreview = useCallback((asset: AssetFile) => {
     cancelPendingThumbnails()
+    // 3D 视图打开期间暂停后台缩略图生成，避免争抢 WebGL/CPU 导致缩略图卡在加载态
+    pauseThumbnailGeneration()
     setPreviewAsset(asset)
   }, [])
 
   const handleClosePreview = useCallback(() => {
     const asset = previewAsset
     setPreviewAsset(null)
+    // 恢复生成并通知列表中的缩略图重新请求（命中缓存时立即显示）
+    resumeThumbnailGeneration()
+    requestThumbnailResume()
     if (!asset) return
 
     if (browseMode === 'library') {
@@ -909,6 +918,7 @@ export default function App(): JSX.Element {
         onCreateDataPack={handleOpenCreateDataPackDialog}
         creatingDataPack={creatingDataPack}
         onManagePacks={() => setShowPackManager((v) => !v)}
+        managingPacks={showPackManager}
         hasContent={hasContent}
         theme={theme}
         onThemeChange={handleThemeChange}

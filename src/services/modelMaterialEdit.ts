@@ -20,6 +20,7 @@ import {
   applyNormalMapInverted,
   captureEditableMaterialMaps,
   configureMeshTextureWrapping,
+  ensureMeshPhysicalMaterial,
   ensureMeshStandardMaterial,
   materialSupportsMapSlot,
   getEditableMapSlots,
@@ -31,8 +32,16 @@ import {
   readNormalMapInverted,
   setMaterialMapTexture
 } from './materialPbr'
+import {
+  applyFlowEffect,
+  applyGlassEffect,
+  readMaterialEffects,
+  type FlowDirection,
+  type MaterialFlowState
+} from './materialEffects'
 
 export type { PbrMapSlot } from './materialPbr'
+export type { FlowDirection } from './materialEffects'
 
 export type MaterialKind = 'standard' | 'phong' | 'lambert' | 'basic' | 'other'
 
@@ -71,6 +80,16 @@ export interface MaterialEditState {
   pbrMapSlots: PbrMapSlotState[]
   supportsNormalMap: boolean
   normalMapInverted: boolean
+  glass: boolean
+  glassThickness: number
+  glassColor: string
+  glassOpacity: number
+  glassIor: number
+  flow: boolean
+  flowColor: string
+  flowSpeed: number
+  flowIntensity: number
+  flowDirection: FlowDirection
   kind: MaterialKind
 }
 
@@ -94,6 +113,83 @@ interface MaterialSnapshot {
   normalMapInverted: boolean
   pbrMapsEnabled: boolean
   maps: Partial<Record<PbrMapSlot, THREE.Texture | null>>
+  glass: boolean
+  glassThickness: number
+  glassColor: string
+  glassOpacity: number
+  glassIor: number
+  flow: MaterialFlowState
+}
+
+interface MaterialHistoryState {
+  snapshot: MaterialSnapshot
+  pbrEnabled: boolean
+  assignedMaps: Partial<Record<PbrMapSlot, string | null>>
+  normalMapInverted: boolean
+}
+
+interface MaterialHistoryEntry {
+  meshUuid: string
+  materialIndex: number
+  before: MaterialHistoryState
+  after: MaterialHistoryState
+  coalesceKey: string
+  time: number
+}
+
+export interface MaterialUndoResult {
+  meshUuid: string
+  materialIndex: number
+  state: MaterialEditState
+  materialSlots: MaterialSlotInfo[]
+}
+
+/** 滑块连续拖动、颜色连续取色时，把短时间内的同类改动合并为一步撤回 */
+const HISTORY_COALESCE_WINDOW_MS = 700
+const HISTORY_LIMIT = 100
+
+function getPatchCoalesceKey(patch: MaterialEditPatch): string {
+  const keys = Object.keys(patch).filter((key) => key !== 'pbrMapPatches')
+  if (patch.pbrMapPatches) {
+    for (const slot of Object.keys(patch.pbrMapPatches).sort()) {
+      keys.push(`map:${slot}`)
+    }
+  }
+  return keys.sort().join(',')
+}
+
+function getHistorySignature(state: MaterialHistoryState): string {
+  const snapshot = state.snapshot
+  const maps = Object.keys(snapshot.maps)
+    .sort()
+    .map((slot) => `${slot}:${snapshot.maps[slot as PbrMapSlot]?.uuid ?? ''}`)
+  const assigned = Object.keys(state.assignedMaps)
+    .sort()
+    .map((slot) => `${slot}:${state.assignedMaps[slot as PbrMapSlot] ?? ''}`)
+
+  return [
+    snapshot.color,
+    snapshot.opacity,
+    snapshot.transparent ? '1' : '0',
+    snapshot.metalness ?? '',
+    snapshot.roughness ?? '',
+    snapshot.shininess ?? '',
+    snapshot.normalMapInverted ? '1' : '0',
+    snapshot.glass ? '1' : '0',
+    snapshot.glassThickness,
+    snapshot.glassColor,
+    snapshot.glassOpacity,
+    snapshot.glassIor,
+    snapshot.flow.enabled ? '1' : '0',
+    snapshot.flow.color,
+    snapshot.flow.speed,
+    snapshot.flow.intensity,
+    snapshot.flow.direction,
+    state.pbrEnabled ? '1' : '0',
+    state.normalMapInverted ? '1' : '0',
+    maps.join(','),
+    assigned.join(',')
+  ].join('|')
 }
 
 import { createPartOutlineGeometry, createPartOutlineMaterial } from './modelPartOutline'
@@ -152,6 +248,7 @@ function getTextureLabel(texture: THREE.Texture): string {
 }
 
 function captureSnapshot(material: THREE.Material, pbrMapsEnabled = false): MaterialSnapshot {
+  const effects = readMaterialEffects(material)
   const snapshot: MaterialSnapshot = {
     color: '#8899aa',
     opacity: 1,
@@ -161,7 +258,13 @@ function captureSnapshot(material: THREE.Material, pbrMapsEnabled = false): Mate
     shininess: null,
     normalMapInverted: readNormalMapInverted(material),
     pbrMapsEnabled,
-    maps: captureMaterialMaps(material)
+    maps: captureMaterialMaps(material),
+    glass: effects.glass,
+    glassThickness: effects.glassThickness,
+    glassColor: effects.glassColor,
+    glassOpacity: effects.glassOpacity,
+    glassIor: effects.glassIor,
+    flow: effects.flow
   }
 
   if ('color' in material && material.color instanceof THREE.Color) {
@@ -248,6 +351,7 @@ function readMaterialState(
   const pbrMapSlots = getPbrSlotsFromAssignedMaps(material, assignedMaps)
   const pbrMapsEnabled = pbrSettings?.enabled ?? false
   const enabledMapTextureId = pbrMapsEnabled ? assignedMaps.map ?? null : null
+  const effects = readMaterialEffects(material)
   const state: MaterialEditState = {
     color: '#8899aa',
     opacity: 1,
@@ -261,6 +365,16 @@ function readMaterialState(
     pbrMapSlots,
     supportsNormalMap: materialSupportsNormalMap(material) || pbrMapSlots.some((slot) => slot.slot === 'normalMap'),
     normalMapInverted: pbrSettings?.normalMapInverted ?? readNormalMapInverted(material),
+    glass: effects.glass,
+    glassThickness: effects.glassThickness,
+    glassColor: effects.glassColor,
+    glassOpacity: effects.glassOpacity,
+    glassIor: effects.glassIor,
+    flow: effects.flow.enabled,
+    flowColor: effects.flow.color,
+    flowSpeed: effects.flow.speed,
+    flowIntensity: effects.flow.intensity,
+    flowDirection: effects.flow.direction,
     kind
   }
 
@@ -308,7 +422,49 @@ function applySnapshot(material: THREE.Material, snapshot: MaterialSnapshot): vo
   if (materialSupportsNormalMap(material)) {
     applyNormalMapInverted(material, snapshot.normalMapInverted)
   }
+  applyGlassEffect(material, {
+    enabled: snapshot.glass,
+    thickness: snapshot.glassThickness,
+    color: snapshot.glassColor,
+    opacity: snapshot.glassOpacity,
+    ior: snapshot.glassIor
+  })
+  applyFlowEffect(material, snapshot.flow)
   material.needsUpdate = true
+}
+
+function applyEffectPatch(material: THREE.Material, patch: MaterialEditPatch): void {
+  const effects = readMaterialEffects(material)
+  if (
+    patch.glass !== undefined ||
+    patch.glassThickness !== undefined ||
+    patch.glassColor !== undefined ||
+    patch.glassOpacity !== undefined ||
+    patch.glassIor !== undefined
+  ) {
+    applyGlassEffect(material, {
+      enabled: patch.glass ?? effects.glass,
+      thickness: patch.glassThickness ?? effects.glassThickness,
+      color: patch.glassColor ?? effects.glassColor,
+      opacity: patch.glassOpacity ?? effects.glassOpacity,
+      ior: patch.glassIor ?? effects.glassIor
+    })
+  }
+  if (
+    patch.flow !== undefined ||
+    patch.flowColor !== undefined ||
+    patch.flowSpeed !== undefined ||
+    patch.flowIntensity !== undefined ||
+    patch.flowDirection !== undefined
+  ) {
+    applyFlowEffect(material, {
+      enabled: patch.flow ?? effects.flow.enabled,
+      color: patch.flowColor ?? effects.flow.color,
+      speed: patch.flowSpeed ?? effects.flow.speed,
+      intensity: patch.flowIntensity ?? effects.flow.intensity,
+      direction: patch.flowDirection ?? effects.flow.direction
+    })
+  }
 }
 
 function applyPatch(
@@ -317,13 +473,14 @@ function applyPatch(
   textureMap: Map<string, THREE.Texture>,
   pbrSettings?: MaterialPbrSettings
 ): MaterialPbrSettings | undefined {
+  applyEffectPatch(material, patch)
   if ('color' in material && patch.color) {
     material.color.set(patch.color)
   }
   if ('opacity' in material && patch.opacity != null) {
     material.opacity = patch.opacity
     if ('transparent' in material) {
-      material.transparent = patch.opacity < 1
+      material.transparent = patch.opacity < 1 || readMaterialEffects(material).glass
     }
   }
   if (material instanceof THREE.MeshStandardMaterial) {
@@ -406,6 +563,20 @@ function isMaterialChanged(
   const state = readMaterialState(material, pbrSettings)
   if (state.color !== snapshot.color) return true
   if (Math.abs(state.opacity - snapshot.opacity) > 0.001) return true
+  if (state.glass !== snapshot.glass) return true
+  if (state.glass) {
+    if (Math.abs(state.glassThickness - snapshot.glassThickness) > 0.001) return true
+    if (state.glassColor !== snapshot.glassColor) return true
+    if (Math.abs(state.glassOpacity - snapshot.glassOpacity) > 0.001) return true
+    if (Math.abs(state.glassIor - snapshot.glassIor) > 0.001) return true
+  }
+  if (state.flow !== snapshot.flow.enabled) return true
+  if (state.flow) {
+    if (state.flowColor !== snapshot.flow.color) return true
+    if (Math.abs(state.flowSpeed - snapshot.flow.speed) > 0.001) return true
+    if (Math.abs(state.flowIntensity - snapshot.flow.intensity) > 0.001) return true
+    if (state.flowDirection !== snapshot.flow.direction) return true
+  }
 
   const baselinePbr = getSnapshotPbrScalars(snapshot)
   if (
@@ -479,6 +650,97 @@ export class ModelMaterialEditController {
   private selectedMaterialIndex = 0
   private outline: THREE.LineSegments | null = null
   private readonly outlineLineMaterial = createPartOutlineMaterial()
+  private readonly undoStack: MaterialHistoryEntry[] = []
+
+  private captureHistoryState(
+    meshUuid: string,
+    materialIndex: number
+  ): MaterialHistoryState | null {
+    const mesh = this.meshMap.get(meshUuid)
+    if (!mesh) return null
+    const material = getMeshMaterials(mesh)[materialIndex]
+    if (!material) return null
+
+    const pbrSettings = this.ensurePbrSettings(meshUuid, materialIndex, material)
+    return {
+      snapshot: captureSnapshot(material, pbrSettings.enabled),
+      pbrEnabled: pbrSettings.enabled,
+      assignedMaps: { ...pbrSettings.assignedMaps },
+      normalMapInverted: pbrSettings.normalMapInverted
+    }
+  }
+
+  private restoreHistoryState(
+    meshUuid: string,
+    materialIndex: number,
+    state: MaterialHistoryState
+  ): void {
+    const mesh = this.meshMap.get(meshUuid)
+    if (!mesh) return
+    const material = getMeshMaterials(mesh)[materialIndex]
+    if (!material) return
+
+    applySnapshot(material, state.snapshot)
+
+    const pbrSettings = this.ensurePbrSettings(meshUuid, materialIndex, material)
+    pbrSettings.enabled = state.pbrEnabled
+    pbrSettings.assignedMaps = { ...state.assignedMaps }
+    pbrSettings.normalMapInverted = state.normalMapInverted
+
+    configureMeshTextureWrapping(mesh)
+  }
+
+  private pushHistory(
+    meshUuid: string,
+    materialIndex: number,
+    before: MaterialHistoryState | null,
+    coalesceKey: string
+  ): void {
+    const after = this.captureHistoryState(meshUuid, materialIndex)
+    if (!before || !after) return
+    if (getHistorySignature(before) === getHistorySignature(after)) return
+
+    const now = Date.now()
+    const last = this.undoStack[this.undoStack.length - 1]
+    if (
+      last &&
+      last.meshUuid === meshUuid &&
+      last.materialIndex === materialIndex &&
+      last.coalesceKey === coalesceKey &&
+      now - last.time <= HISTORY_COALESCE_WINDOW_MS
+    ) {
+      last.after = after
+      last.time = now
+      return
+    }
+
+    this.undoStack.push({ meshUuid, materialIndex, before, after, coalesceKey, time: now })
+    if (this.undoStack.length > HISTORY_LIMIT) {
+      this.undoStack.shift()
+    }
+  }
+
+  canUndoMaterial(): boolean {
+    return this.undoStack.length > 0
+  }
+
+  /** 撤回最近一次材质修改，并返回被修改材质的最新状态 */
+  undoMaterialEdit(): MaterialUndoResult | null {
+    const entry = this.undoStack.pop()
+    if (!entry) return null
+
+    this.restoreHistoryState(entry.meshUuid, entry.materialIndex, entry.before)
+
+    const state = this.selectMesh(entry.meshUuid, entry.materialIndex)
+    if (!state) return null
+
+    return {
+      meshUuid: entry.meshUuid,
+      materialIndex: entry.materialIndex,
+      state,
+      materialSlots: this.listMaterials(entry.meshUuid)
+    }
+  }
 
   private ensurePbrSettings(meshUuid: string, materialIndex: number, material: THREE.Material): MaterialPbrSettings {
     let settingsList = this.pbrSettingsMap.get(meshUuid)
@@ -507,6 +769,7 @@ export class ModelMaterialEditController {
     this.originalSnapshots.clear()
     this.openedSnapshots.clear()
     this.pbrSettingsMap.clear()
+    this.undoStack.length = 0
 
     const nameCounts = new Map<string, number>()
     let partIndex = 0
@@ -615,7 +878,9 @@ export class ModelMaterialEditController {
       patch.metalness !== undefined ||
       patch.roughness !== undefined
 
-    if (needsStandard) {
+    if (patch.glass === true) {
+      ensureMeshPhysicalMaterial(mesh, this.selectedMaterialIndex)
+    } else if (needsStandard) {
       ensureMeshStandardMaterial(mesh, this.selectedMaterialIndex)
     }
 
@@ -624,8 +889,15 @@ export class ModelMaterialEditController {
     if (!material) return null
 
     const pbrSettings = this.ensurePbrSettings(this.selectedMeshUuid, this.selectedMaterialIndex, material)
+    const before = this.captureHistoryState(this.selectedMeshUuid, this.selectedMaterialIndex)
     applyPatch(material, patch, this.textureMap, pbrSettings)
     configureMeshTextureWrapping(mesh)
+    this.pushHistory(
+      this.selectedMeshUuid,
+      this.selectedMaterialIndex,
+      before,
+      getPatchCoalesceKey(patch)
+    )
     return readMaterialState(material, pbrSettings)
   }
 
@@ -658,16 +930,24 @@ export class ModelMaterialEditController {
     if (!snapshots || !mesh) return null
 
     const materials = getMeshMaterials(mesh)
-    const material = materials[this.selectedMaterialIndex]
+    let material = materials[this.selectedMaterialIndex]
     const snapshot = snapshots[this.selectedMaterialIndex]
     if (!material || !snapshot) return null
 
+    if (snapshot.glass || snapshot.flow.enabled) {
+      ensureMeshPhysicalMaterial(mesh, this.selectedMaterialIndex)
+      material = getMeshMaterials(mesh)[this.selectedMaterialIndex] ?? material
+    }
+
+    const before = this.captureHistoryState(this.selectedMeshUuid, this.selectedMaterialIndex)
     applySnapshot(material, snapshot)
 
     const pbrSettings = this.ensurePbrSettings(this.selectedMeshUuid, this.selectedMaterialIndex, material)
     pbrSettings.enabled = snapshot.pbrMapsEnabled
     pbrSettings.assignedMaps = captureAssignedMapIds(material)
     pbrSettings.normalMapInverted = snapshot.normalMapInverted
+
+    this.pushHistory(this.selectedMeshUuid, this.selectedMaterialIndex, before, 'reset')
 
     return readMaterialState(material, pbrSettings)
   }
@@ -760,6 +1040,7 @@ export class ModelMaterialEditController {
     this.originalSnapshots.clear()
     this.openedSnapshots.clear()
     this.pbrSettingsMap.clear()
+    this.undoStack.length = 0
     this.root = null
     this.selectedMeshUuid = null
     this.selectedMaterialIndex = 0
@@ -951,6 +1232,25 @@ export class ModelMaterialEditController {
             entry.maps = cleared
             entry.pbrMapsEnabled = false
           }
+        }
+
+        if (state.glass !== snapshot.glass) {
+          entry.glass = state.glass
+        }
+        if (state.glass) {
+          entry.glassThickness = state.glassThickness
+          entry.glassColor = state.glassColor
+          entry.glassOpacity = state.glassOpacity
+          entry.glassIor = state.glassIor
+        }
+        if (state.flow !== snapshot.flow.enabled) {
+          entry.flow = state.flow
+        }
+        if (state.flow) {
+          entry.flowColor = state.flowColor
+          entry.flowSpeed = state.flowSpeed
+          entry.flowIntensity = state.flowIntensity
+          entry.flowDirection = state.flowDirection
         }
 
         entries.push(entry)

@@ -17,6 +17,7 @@ import {
   listInstalledPacks,
   installDataPack,
   activateDataPack,
+  renameDataPack,
   uninstallDataPack,
   getPackLicenseStatus,
   getMachineCode,
@@ -736,6 +737,10 @@ ipcMain.handle(
 
 ipcMain.handle('activate-data-pack', async (_event, packId: string, licenseKey: string) => {
   return activateDataPack(packId, licenseKey)
+})
+
+ipcMain.handle('rename-data-pack', async (_event, packId: string, newName: string) => {
+  return renameDataPack(packId, newName)
 })
 
 ipcMain.handle('uninstall-data-pack', async (_event, packId: string) => {

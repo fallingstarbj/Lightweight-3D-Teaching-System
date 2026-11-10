@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { MarkerCollection, ModelMarker, ModelMarkerKind } from '../types/marker'
 import {
+  DEFAULT_ARROW_COLOR,
   MARKER_KINDS,
   MARKER_KIND_LABELS,
   getMarkerKindLabel,
@@ -27,6 +28,7 @@ interface ModelMarkerPanelProps {
   draftName: string
   draftDescription: string
   draftImagePath: string
+  draftArrowColor: string
   markerError?: string
   markerSaving?: boolean
   onSelectCollection: (collectionId: string) => void
@@ -39,6 +41,7 @@ interface ModelMarkerPanelProps {
   onDraftNameChange: (value: string) => void
   onDraftDescriptionChange: (value: string) => void
   onDraftImagePathChange: (value: string) => void
+  onDraftArrowColorChange: (value: string) => void
   onPickMarkerImage: () => Promise<string | null>
   onConfirmPlacement: () => void
   onCancelPlacement: () => void
@@ -47,7 +50,8 @@ interface ModelMarkerPanelProps {
     markerId: string,
     name: string,
     description: string,
-    imagePath?: string
+    imagePath?: string,
+    color?: string
   ) => void
   onDeleteMarker: (markerId: string) => void
   embedded?: boolean
@@ -115,6 +119,7 @@ export default function ModelMarkerPanel({
   draftName,
   draftDescription,
   draftImagePath,
+  draftArrowColor,
   markerError,
   markerSaving = false,
   onSelectCollection,
@@ -127,6 +132,7 @@ export default function ModelMarkerPanel({
   onDraftNameChange,
   onDraftDescriptionChange,
   onDraftImagePathChange,
+  onDraftArrowColorChange,
   onPickMarkerImage,
   onConfirmPlacement,
   onCancelPlacement,
@@ -139,6 +145,7 @@ export default function ModelMarkerPanel({
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editImagePath, setEditImagePath] = useState('')
+  const [editArrowColor, setEditArrowColor] = useState(DEFAULT_ARROW_COLOR)
   const [newCollectionName, setNewCollectionName] = useState('')
   const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null)
   const [editCollectionName, setEditCollectionName] = useState('')
@@ -152,6 +159,7 @@ export default function ModelMarkerPanel({
     setEditName(marker.name)
     setEditDescription(marker.description ?? '')
     setEditImagePath(marker.imagePath ?? '')
+    setEditArrowColor(marker.color ?? DEFAULT_ARROW_COLOR)
   }, [])
 
   const saveEdit = useCallback(
@@ -168,10 +176,16 @@ export default function ModelMarkerPanel({
           imagePath = editImagePath
         }
       }
-      onUpdateMarker(markerId, editName, editDescription, imagePath)
+      onUpdateMarker(
+        markerId,
+        editName,
+        editDescription,
+        imagePath,
+        marker?.kind === 'arrow' ? editArrowColor : undefined
+      )
       setEditingMarkerId(null)
     },
-    [editName, editDescription, editImagePath, markers, onUpdateMarker]
+    [editName, editDescription, editImagePath, editArrowColor, markers, onUpdateMarker]
   )
 
   const handleCreateCollection = useCallback(() => {
@@ -395,6 +409,20 @@ export default function ModelMarkerPanel({
               )}
             </div>
           )}
+          {pendingPlacement.kind === 'arrow' && (
+            <label className="model-marker-color-field">
+              <span className="model-marker-color-label">箭头颜色</span>
+              <input
+                type="color"
+                className="model-marker-color-input"
+                value={draftArrowColor}
+                onChange={(e) => onDraftArrowColorChange(e.target.value)}
+              />
+              <span className="model-marker-color-value">
+                {(draftArrowColor || DEFAULT_ARROW_COLOR).toUpperCase()}
+              </span>
+            </label>
+          )}
           <input
             className="model-marker-input"
             placeholder="标记名称，如：底座、主轴"
@@ -467,6 +495,18 @@ export default function ModelMarkerPanel({
                           </>
                         )}
                       </div>
+                    )}
+                    {marker.kind === 'arrow' && (
+                      <label className="model-marker-color-field" onClick={(e) => e.stopPropagation()}>
+                        <span className="model-marker-color-label">箭头颜色</span>
+                        <input
+                          type="color"
+                          className="model-marker-color-input"
+                          value={editArrowColor}
+                          onChange={(e) => setEditArrowColor(e.target.value)}
+                        />
+                        <span className="model-marker-color-value">{editArrowColor.toUpperCase()}</span>
+                      </label>
                     )}
                     <input
                       className="model-marker-input"

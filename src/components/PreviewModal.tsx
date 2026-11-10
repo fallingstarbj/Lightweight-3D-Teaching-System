@@ -5,6 +5,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import type { AssetFile } from '../types'
 import type { MarkerCollection, ModelMarker, ModelMarkerInput, ModelMarkerKind } from '../types/marker'
 import {
+  DEFAULT_ARROW_COLOR,
   PREVIEW_MARKER_ID,
   addMarkerToCollection,
   getCollectionMarkers,
@@ -51,6 +52,7 @@ import {
   applyPreviewBackground,
   disposePreviewBackgroundTexture
 } from '../services/previewBackground'
+import { PreviewColorGradeController } from '../services/previewColorGrade'
 import {
   ModelMarkerLayer,
   computeMarkerVisualScale,
@@ -435,6 +437,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
   const animationControllerRef = useRef<ModelAnimationController | null>(null)
   const explodeControllerRef = useRef<ModelExplodeController | null>(null)
   const sectionClipControllerRef = useRef<ModelSectionClipController | null>(null)
+  const colorGradeRef = useRef<PreviewColorGradeController | null>(null)
   const transparentPeekControllerRef = useRef<ModelTransparentPeekController | null>(null)
   const measureControllerRef = useRef<ModelMeasureController | null>(null)
   const materialEditControllerRef = useRef<ModelMaterialEditController | null>(null)
@@ -1132,7 +1135,10 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
 
     try {
       const { scene, camera, renderer } = sceneObjects
-      renderer.render(scene, camera)
+      colorGradeRef.current?.render()
+      if (!colorGradeRef.current) {
+        renderer.render(scene, camera)
+      }
       try {
         markerLayerRef.current?.render(scene, camera)
       } catch (err) {
@@ -1223,6 +1229,10 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
     sceneRef.current = sceneObjects
     const { scene, camera, renderer } = sceneObjects
     container.appendChild(renderer.domElement)
+
+    const colorGrade = new PreviewColorGradeController(renderer, scene, camera)
+    colorGrade.update(settings)
+    colorGradeRef.current = colorGrade
 
     const controls = new OrbitControls(camera, renderer.domElement)
     controlsRef.current = controls
@@ -1613,6 +1623,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       renderer.setSize(w, h, false)
+      colorGrade.setSize(w, h)
     }
 
     const resizeObserver = new ResizeObserver(resize)
@@ -1640,6 +1651,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
         const totalTriangles = optimization.optimizedTriangles
         if (totalTriangles > 300_000) {
           renderer.setPixelRatio(1)
+          colorGrade.setSize(container.clientWidth, container.clientHeight)
         }
 
         const { root, box } = centerAndScaleObject(object, PREVIEW_MODEL_TARGET_SIZE)
@@ -1977,7 +1989,10 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
         }
         refreshViewportStatsLine()
 
-        renderer.render(scene, camera)
+        colorGradeRef.current?.render()
+        if (!colorGradeRef.current) {
+          renderer.render(scene, camera)
+        }
 
         const readyMessage = '模型已加载'
         reportLoadStatus({ state: 'ready', message: readyMessage })
@@ -2175,7 +2190,7 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
         fpsTracker.lastTime = fpsNow
       }
 
-      renderer.render(scene, camera)
+      colorGrade.render()
       try {
         markerLayer.render(scene, camera)
       } catch (err) {
@@ -2244,6 +2259,8 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
       floorGridRef.current = null
       cancelAnimationFrame(animationId)
       resizeObserver.disconnect()
+      colorGradeRef.current?.dispose()
+      colorGradeRef.current = null
       renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
       renderer.domElement.removeEventListener('pointermove', handlePointerMove)
       renderer.domElement.removeEventListener('pointerup', handlePointerUp)
@@ -2253,6 +2270,8 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
       disposeTouchPanZoomToleranceRef.current = null
       controls.dispose()
       markerLayer.dispose()
+      // 显式释放 WebGL 上下文，避免多次进出 3D 视图后上下文配额被占满
+      renderer.forceContextLoss()
       renderer.dispose()
       if (renderer.domElement.parentNode) {
         renderer.domElement.parentNode.removeChild(renderer.domElement)
@@ -2270,7 +2289,8 @@ const ModelPreview = forwardRef<ModelPreviewHandle, ModelPreviewProps>(function 
   useEffect(() => {
     if (!sceneRef.current) return
     applyPreviewLighting(sceneRef.current, settings)
-    void applyPreviewBackground(sceneRef.current.scene, settings)
+    void applyPreviewBackground(sceneRef.current, settings)
+    colorGradeRef.current?.update(settings)
   }, [settings])
 
   useEffect(() => {
@@ -2573,6 +2593,7 @@ export default function PreviewModal({
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
   const [draftImagePath, setDraftImagePath] = useState('')
+  const [draftArrowColor, setDraftArrowColor] = useState(DEFAULT_ARROW_COLOR)
   const [markerError, setMarkerError] = useState('')
   const [markerSaving, setMarkerSaving] = useState(false)
   const previewRef = useRef<ModelPreviewHandle>(null)
@@ -2989,6 +3010,7 @@ export default function PreviewModal({
     setDraftName('')
     setDraftDescription('')
     setDraftImagePath('')
+    setDraftArrowColor(DEFAULT_ARROW_COLOR)
     setMarkerError('')
     setCollections([])
     setActiveCollectionId(null)
@@ -3115,6 +3137,7 @@ export default function PreviewModal({
         setDraftName('')
         setDraftDescription('')
         setDraftImagePath('')
+        setDraftArrowColor(DEFAULT_ARROW_COLOR)
       }
       return next
     })
@@ -4210,6 +4233,7 @@ export default function PreviewModal({
         description: draftDescription.trim() || undefined,
         imagePath:
           pendingPlacement.kind === 'image-text' ? draftImagePath.trim() : undefined,
+        color: pendingPlacement.kind === 'arrow' ? draftArrowColor : undefined,
         meshName: pendingPlacement.meshName,
         position: {
           x: pendingPlacement.position.x,
@@ -4241,6 +4265,7 @@ export default function PreviewModal({
       setDraftName('')
       setDraftDescription('')
       setDraftImagePath('')
+      setDraftArrowColor(DEFAULT_ARROW_COLOR)
       setSelectedMarkerId(marker.id)
       setFocusMarkerId(marker.id)
     } catch (err) {
@@ -4254,7 +4279,8 @@ export default function PreviewModal({
     pendingPlacement,
     draftName,
     draftDescription,
-    draftImagePath
+    draftImagePath,
+    draftArrowColor
   ])
 
   const handleCancelPlacement = useCallback(() => {
@@ -4264,6 +4290,7 @@ export default function PreviewModal({
     setDraftName('')
     setDraftDescription('')
     setDraftImagePath('')
+    setDraftArrowColor(DEFAULT_ARROW_COLOR)
   }, [])
 
   const displayMarkers = useMemo(() => {
@@ -4275,6 +4302,7 @@ export default function PreviewModal({
       name: draftName,
       description: draftDescription.trim() || undefined,
       imagePath: pendingPlacement.kind === 'image-text' ? draftImagePath.trim() || undefined : undefined,
+      color: pendingPlacement.kind === 'arrow' ? draftArrowColor : undefined,
       meshName: pendingPlacement.meshName,
       position: pendingPlacement.position,
       endPosition: pendingPlacement.endPosition,
@@ -4287,7 +4315,8 @@ export default function PreviewModal({
     pendingPlacement,
     draftName,
     draftDescription,
-    draftImagePath
+    draftImagePath,
+    draftArrowColor
   ])
 
   const allMarkersForFocus = useMemo(
@@ -4382,7 +4411,13 @@ export default function PreviewModal({
   )
 
   const handleUpdateMarker = useCallback(
-    async (markerId: string, name: string, description: string, imagePath?: string) => {
+    async (
+      markerId: string,
+      name: string,
+      description: string,
+      imagePath?: string,
+      color?: string
+    ) => {
       if (!asset?.libraryId) return
       const trimmedName = name.trim()
       if (!trimmedName) {
@@ -4399,6 +4434,9 @@ export default function PreviewModal({
         }
         if (imagePath !== undefined) {
           patch.imagePath = imagePath
+        }
+        if (color !== undefined) {
+          patch.color = color
         }
 
         const updated = await window.electronAPI.updateModelMarker(asset.libraryId, markerId, patch)
@@ -4599,6 +4637,8 @@ export default function PreviewModal({
               draftName={draftName}
               draftDescription={draftDescription}
               draftImagePath={draftImagePath}
+              draftArrowColor={draftArrowColor}
+              onDraftArrowColorChange={setDraftArrowColor}
               markerError={markerError}
               markerSaving={markerSaving}
               onSelectCollection={handleSelectCollection}

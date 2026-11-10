@@ -47,6 +47,7 @@ interface PreviewSidebarProps {
   draftName: string
   draftDescription: string
   draftImagePath: string
+  draftArrowColor: string
   markerError: string
   markerSaving: boolean
   onSelectCollection: (collectionId: string) => void
@@ -59,6 +60,7 @@ interface PreviewSidebarProps {
   onDraftNameChange: (value: string) => void
   onDraftDescriptionChange: (value: string) => void
   onDraftImagePathChange: (value: string) => void
+  onDraftArrowColorChange: (value: string) => void
   onPickMarkerImage: () => Promise<string | null>
   onConfirmPlacement: () => void
   onCancelPlacement: () => void
@@ -67,7 +69,8 @@ interface PreviewSidebarProps {
     markerId: string,
     name: string,
     description: string,
-    imagePath?: string
+    imagePath?: string,
+    color?: string
   ) => void
   onDeleteMarker: (markerId: string) => void
   partAnimationDocument: PartAnimationDocument
@@ -193,6 +196,7 @@ export default function PreviewSidebar({
   draftName,
   draftDescription,
   draftImagePath,
+  draftArrowColor,
   markerError,
   markerSaving,
   onSelectCollection,
@@ -205,6 +209,7 @@ export default function PreviewSidebar({
   onDraftNameChange,
   onDraftDescriptionChange,
   onDraftImagePathChange,
+  onDraftArrowColorChange,
   onPickMarkerImage,
   onConfirmPlacement,
   onCancelPlacement,
@@ -395,6 +400,7 @@ export default function PreviewSidebar({
               draftName={draftName}
               draftDescription={draftDescription}
               draftImagePath={draftImagePath}
+              draftArrowColor={draftArrowColor}
               markerError={markerError}
               markerSaving={markerSaving}
               onSelectCollection={onSelectCollection}
@@ -407,6 +413,7 @@ export default function PreviewSidebar({
               onDraftNameChange={onDraftNameChange}
               onDraftDescriptionChange={onDraftDescriptionChange}
               onDraftImagePathChange={onDraftImagePathChange}
+              onDraftArrowColorChange={onDraftArrowColorChange}
               onPickMarkerImage={onPickMarkerImage}
               onConfirmPlacement={onConfirmPlacement}
               onCancelPlacement={onCancelPlacement}

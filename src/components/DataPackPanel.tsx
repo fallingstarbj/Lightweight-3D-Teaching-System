@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react'
 import type { DataPackInfo, PackExportEditSummary } from '../types/dataPack'
 import ExportDataPackDialog from './ExportDataPackDialog'
+import PackAssetName from './PackAssetName'
 
 interface DataPackPanelProps {
   packs: DataPackInfo[]
-  onRefresh: () => void
+  onRefresh: () => void | Promise<void>
   onActivatePack: (packId: string, packName: string) => void
   onCreatePack?: () => void
   creating?: boolean
@@ -20,6 +21,7 @@ export default function DataPackPanel({
   const [uninstalling, setUninstalling] = useState<string | null>(null)
   const [exporting, setExporting] = useState<string | null>(null)
   const [restoring, setRestoring] = useState<string | null>(null)
+  const [renamingPackId, setRenamingPackId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [exportDialog, setExportDialog] = useState<{
     packId: string
@@ -86,6 +88,21 @@ export default function DataPackPanel({
       }
     },
     [exportDialog]
+  )
+
+  const handleRenamePack = useCallback(
+    async (packId: string, nextName: string) => {
+      setError('')
+      try {
+        await window.electronAPI.renameDataPack(packId, nextName)
+        await onRefresh()
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '重命名失败'
+        setError(message)
+        throw err instanceof Error ? err : new Error(message)
+      }
+    },
+    [onRefresh]
   )
 
   const handleRestore = useCallback(async (packId: string, name: string) => {
@@ -159,7 +176,14 @@ export default function DataPackPanel({
         {packs.map((pack) => (
           <li key={pack.packId} className="data-pack-item">
             <div className="data-pack-item-main">
-              <div className="data-pack-name">{pack.name}</div>
+              <PackAssetName
+                name={pack.name}
+                className="data-pack-name"
+                editable
+                editing={renamingPackId === pack.packId}
+                onEditingChange={(editing) => setRenamingPackId(editing ? pack.packId : null)}
+                onRename={(nextName) => handleRenamePack(pack.packId, nextName)}
+              />
               <div className="data-pack-meta">
                 v{pack.version} · {pack.modelCount} 个模型
                 {pack.accessMode === 'public' ? (
@@ -188,6 +212,13 @@ export default function DataPackPanel({
                   激活
                 </button>
               )}
+              <button
+                type="button"
+                className="toolbar-btn"
+                onClick={() => setRenamingPackId(pack.packId)}
+              >
+                重命名
+              </button>
               <button
                 type="button"
                 className="toolbar-btn"

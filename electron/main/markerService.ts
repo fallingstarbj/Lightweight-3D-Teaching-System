@@ -10,7 +10,7 @@ import type {
   ModelMarkerInput,
   ModelMarkerKind
 } from '../../src/types/marker'
-import { normalizeModelMarker } from '../../src/types/marker'
+import { normalizeMarkerColor, normalizeModelMarker } from '../../src/types/marker'
 
 function getLibraryRoot(): string {
   return join(app.getPath('userData'), 'asset-library')
@@ -178,9 +178,26 @@ async function readDocument(libraryId: string): Promise<ModelMarkerDocument> {
   }
 }
 
+/** Windows 下杀毒/索引进程会短暂占用文件（表现为 EPERM/EBUSY），重试几次再放弃 */
+async function writeFileWithRetry(filePath: string, data: string, attempts = 5): Promise<void> {
+  let lastError: unknown
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await writeFile(filePath, data, 'utf8')
+      return
+    } catch (err) {
+      lastError = err
+      const code = (err as NodeJS.ErrnoException | undefined)?.code
+      if (code !== 'EPERM' && code !== 'EBUSY') throw err
+      await new Promise((resolve) => setTimeout(resolve, 150 * (i + 1)))
+    }
+  }
+  throw lastError
+}
+
 async function writeDocument(libraryId: string, document: ModelMarkerDocument): Promise<ModelMarkerDocument> {
   await ensureMarkersDir()
-  await writeFile(getMarkerFilePath(libraryId), JSON.stringify(document, null, 2), 'utf8')
+  await writeFileWithRetry(getMarkerFilePath(libraryId), JSON.stringify(document, null, 2))
   return document
 }
 
@@ -248,6 +265,7 @@ function buildMarker(input: ModelMarkerInput, kind: ModelMarkerKind): ModelMarke
       y: input.endPosition.y,
       z: input.endPosition.z
     }
+    marker.color = normalizeMarkerColor(input.color)
   }
 
   return marker
@@ -347,7 +365,10 @@ export async function updateModelMarker(
   libraryId: string,
   markerId: string,
   patch: Partial<
-    Pick<ModelMarker, 'name' | 'description' | 'position' | 'endPosition' | 'meshName' | 'kind' | 'imagePath'>
+    Pick<
+      ModelMarker,
+      'name' | 'description' | 'position' | 'endPosition' | 'meshName' | 'kind' | 'imagePath' | 'color'
+    >
   >
 ): Promise<ModelMarker | null> {
   const document = await readDocument(libraryId)
@@ -399,6 +420,9 @@ export async function updateModelMarker(
       await deleteMarkerImageFile(marker.imagePath)
       marker.imagePath = await importMarkerImage(libraryId, marker.id, nextImagePath)
     }
+  }
+  if (patch.color !== undefined) {
+    marker.color = normalizeMarkerColor(patch.color)
   }
 
   const normalized = normalizeMarker(marker)

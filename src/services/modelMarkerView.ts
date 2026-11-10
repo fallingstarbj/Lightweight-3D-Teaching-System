@@ -5,6 +5,7 @@ import {
   type ModelMarker,
   type ModelMarkerKind,
   isAnchorMarkerKind,
+  normalizeMarkerColor,
   normalizeMarkerKind,
   normalizeModelMarker
 } from '../types/marker'
@@ -19,6 +20,40 @@ import {
 
 type MarkerEndpoint = 'start' | 'end'
 
+/** 点击图文标注图片时，在页面最上层显示原图 */
+function openMarkerImageLightbox(src: string, alt: string): void {
+  const existing = document.querySelector('.marker-image-lightbox')
+  if (existing) existing.remove()
+
+  const overlay = document.createElement('div')
+  overlay.className = 'marker-image-lightbox'
+
+  const image = document.createElement('img')
+  image.src = src
+  image.alt = alt
+  overlay.appendChild(image)
+
+  const close = (): void => {
+    overlay.remove()
+    window.removeEventListener('keydown', handleKeyDown, true)
+  }
+  // window 捕获阶段拦截，避免 Esc 同时触发预览窗口关闭
+  const handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return
+    event.stopPropagation()
+    event.preventDefault()
+    close()
+  }
+
+  overlay.addEventListener('click', (event) => {
+    event.stopPropagation()
+    close()
+  })
+  window.addEventListener('keydown', handleKeyDown, true)
+  document.body.appendChild(overlay)
+}
+
+
 interface MarkerVisual {
   kind: ModelMarkerKind
   anchor: THREE.Object3D
@@ -28,6 +63,8 @@ interface MarkerVisual {
   geometryGroup: THREE.Group | null
   startHandle: CSS2DObject | null
   endHandle: CSS2DObject | null
+  /** 箭头标注的基础颜色（用户自定义），选中时在此基础上提亮 */
+  baseColor: number
 }
 
 interface MarkerDragPointerDownEvent {
@@ -48,7 +85,18 @@ interface MarkerEndpointDragPointerDownEvent {
 }
 
 const MARKER_COLOR = 0x6c8cff
-const MARKER_COLOR_SELECTED = 0x8aa4ff
+
+/** 将标注的十六进制颜色转为 three 颜色值，非法或未设置时回退默认色 */
+function resolveMarkerBaseColor(color?: string): number {
+  const normalized = normalizeMarkerColor(color)
+  return normalized ? parseInt(normalized.slice(1), 16) : MARKER_COLOR
+}
+
+/** 选中态在基础色上混入白色提亮，替代原来的固定高亮色 */
+function resolveMarkerDisplayColor(baseColor: number, selected: boolean): number {
+  if (!selected) return baseColor
+  return new THREE.Color(baseColor).lerp(new THREE.Color(0xffffff), 0.24).getHex()
+}
 
 export class ModelMarkerLayer {
   readonly group = new THREE.Group()
@@ -146,7 +194,7 @@ export class ModelMarkerLayer {
     visual.anchor.position.set(start.x, start.y, start.z)
     const localEnd = getMarkerLocalEnd(start, end)
     const selected = markerId === this.selectedId
-    const color = selected ? MARKER_COLOR_SELECTED : MARKER_COLOR
+    const color = resolveMarkerDisplayColor(visual.baseColor, selected)
 
     disposeMarkerGeometryGroup(visual.geometryGroup)
     const geometry = createArrowGeometryGroup(localEnd, this.visualScale, color, selected)
@@ -279,8 +327,9 @@ export class ModelMarkerLayer {
     if (isAnchorMarkerKind(marker.kind) || !marker.endPosition) return
 
     const localEnd = getMarkerLocalEnd(marker.position, marker.endPosition)
+    visual.baseColor = resolveMarkerBaseColor(marker.color)
     const selected = marker.id === this.selectedId
-    const color = selected ? MARKER_COLOR_SELECTED : MARKER_COLOR
+    const color = resolveMarkerDisplayColor(visual.baseColor, selected)
     const geometry = createArrowGeometryGroup(localEnd, this.visualScale, color, selected)
     visual.geometryGroup = geometry
     visual.anchor.add(geometry)
@@ -389,7 +438,8 @@ export class ModelMarkerLayer {
       card,
       geometryGroup: null,
       startHandle,
-      endHandle
+      endHandle,
+      baseColor: resolveMarkerBaseColor(marker.color)
     }
   }
 
@@ -533,6 +583,12 @@ export class ModelMarkerLayer {
     if (marker.kind === 'image-text' && marker.imagePath) {
       const img = card.querySelector<HTMLImageElement>('.model-marker-card-image')
       if (img) {
+        img.title = '点击放大查看'
+        img.addEventListener('click', (event) => {
+          event.stopPropagation()
+          event.preventDefault()
+          if (img.src) openMarkerImageLightbox(img.src, marker.name)
+        })
         void resolveMarkerImageUrl(marker.imagePath).then((url) => {
           img.src = url
         })
@@ -545,7 +601,11 @@ export class ModelMarkerLayer {
       const isPreview = id === PREVIEW_MARKER_ID
       const selected = id === this.selectedId
       markerVisual.pin.classList.toggle('selected', selected && !isPreview)
-      markerVisual.card.classList.toggle('expanded', selected || isPreview)
+      // 图文标注始终保持小窗（标题 + 缩略图），点击缩略图再放大
+      markerVisual.card.classList.toggle(
+        'expanded',
+        (selected || isPreview) && markerVisual.kind !== 'image-text'
+      )
 
       const marker = this.findMarkerForVisual(id)
       if (marker) {
@@ -559,7 +619,7 @@ export class ModelMarkerLayer {
             const materials = Array.isArray(material) ? material : [material]
             materials.forEach((item) => {
               if ('color' in item && item.color instanceof THREE.Color) {
-                item.color.setHex(selected ? MARKER_COLOR_SELECTED : MARKER_COLOR)
+                item.color.setHex(resolveMarkerDisplayColor(markerVisual.baseColor, selected))
               }
               if ('opacity' in item) {
                 item.opacity = selected ? 1 : 0.92

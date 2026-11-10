@@ -13,7 +13,8 @@ import {
   getVideoThumbnailCacheKey,
   getDocumentThumbnailCacheKey,
   PREVIEW_SETTINGS_CHANGED_EVENT,
-  THUMBNAIL_REFRESH_EVENT
+  THUMBNAIL_REFRESH_EVENT,
+  THUMBNAIL_RESUME_EVENT
 } from '../utils/previewSettings'
 
 interface AssetThumbnailProps {
@@ -57,6 +58,7 @@ export default function AssetThumbnail({
   const [error, setError] = useState(false)
   const [settingsKey, setSettingsKey] = useState(() => resolveThumbnailCacheKey(filePath, formatExtension))
   const [refreshToken, setRefreshToken] = useState(0)
+  const [resumeToken, setResumeToken] = useState(0)
 
   useEffect(() => {
     const refreshSettingsKey = (): void => {
@@ -79,11 +81,18 @@ export default function AssetThumbnail({
       }
     }
 
+    // 退出 3D 预览后重新发起请求：此前被取消的请求会把组件留在加载/错误态
+    const handleThumbnailResume = (): void => {
+      setResumeToken((prev) => prev + 1)
+    }
+
     window.addEventListener(PREVIEW_SETTINGS_CHANGED_EVENT, refreshSettingsKey)
     window.addEventListener(THUMBNAIL_REFRESH_EVENT, handleThumbnailRefresh)
+    window.addEventListener(THUMBNAIL_RESUME_EVENT, handleThumbnailResume)
     return () => {
       window.removeEventListener(PREVIEW_SETTINGS_CHANGED_EVENT, refreshSettingsKey)
       window.removeEventListener(THUMBNAIL_REFRESH_EVENT, handleThumbnailRefresh)
+      window.removeEventListener(THUMBNAIL_RESUME_EVENT, handleThumbnailResume)
     }
   }, [filePath, formatExtension, libraryId])
 
@@ -111,7 +120,7 @@ export default function AssetThumbnail({
     let cancelled = false
     setLoading(true)
     setError(false)
-    setSrc(null)
+    // 已有缩略图时保留旧图，等待新请求完成后再替换，避免退出 3D 视图时整屏闪回转圈
 
     getOrGenerateThumbnail(filePath, mtimeMs, settingsKey, formatExtension, {
       skipCache: refreshToken > 0,
@@ -135,9 +144,9 @@ export default function AssetThumbnail({
     return () => {
       cancelled = true
     }
-  }, [visible, filePath, mtimeMs, settingsKey, formatExtension, refreshToken, libraryId])
+  }, [visible, filePath, mtimeMs, settingsKey, formatExtension, refreshToken, resumeToken, libraryId])
 
-  if (!visible || loading) {
+  if (!visible || (loading && !src)) {
     return (
       <div ref={containerRef} className={`thumb-placeholder ${className}`}>
         <div className="thumb-loading" />

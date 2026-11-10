@@ -219,9 +219,26 @@ async function readRegistry(): Promise<PackRegistry> {
   }
 }
 
+/** 云同步/索引软件会短暂锁定文件（Windows 表现为 EPERM/EBUSY），重试几次再放弃 */
+async function writeFileWithRetry(filePath: string, content: string, attempts = 5): Promise<void> {
+  let lastError: unknown
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await writeFile(filePath, content, 'utf8')
+      return
+    } catch (err) {
+      lastError = err
+      const code = (err as NodeJS.ErrnoException | undefined)?.code
+      if (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES') throw err
+      await new Promise((resolve) => setTimeout(resolve, 300 * (i + 1)))
+    }
+  }
+  throw lastError
+}
+
 async function writeRegistry(registry: PackRegistry): Promise<void> {
   await ensureDataPacksRoot()
-  await writeFile(getRegistryPath(), JSON.stringify(registry, null, 2), 'utf8')
+  await writeFileWithRetry(getRegistryPath(), JSON.stringify(registry, null, 2))
 }
 
 async function readPackManifest(packId: string): Promise<PackManifest | null> {
@@ -241,7 +258,7 @@ async function writePackManifest(packId: string, manifest: PackManifest): Promis
   if (!existsSync(getPackFilesDir(packId))) {
     await mkdir(getPackFilesDir(packId), { recursive: true })
   }
-  await writeFile(getPackManifestPath(packId), JSON.stringify(manifest, null, 2), 'utf8')
+  await writeFileWithRetry(getPackManifestPath(packId), JSON.stringify(manifest, null, 2))
 }
 
 async function readStoredPackLicense(packId: string): Promise<StoredPackLicense | null> {
@@ -1097,6 +1114,31 @@ export async function removePackAssets(packId: string, libraryIds: string[]): Pr
     }
   }
   return removed
+}
+
+export async function renameDataPack(packId: string, newName: string): Promise<boolean> {
+  await initDataPacks()
+  const trimmed = newName.trim()
+  if (!trimmed) {
+    throw new Error('数据包名称不能为空')
+  }
+
+  const registry = await readRegistry()
+  const entry = registry.packs.find((p) => p.packId === packId)
+  if (!entry) {
+    throw new Error('数据包未安装或已被移除')
+  }
+
+  const manifest = await readPackManifest(packId)
+  if (manifest) {
+    manifest.name = trimmed
+    await writePackManifest(packId, manifest)
+  }
+
+  entry.name = trimmed
+  await writeRegistry(registry)
+
+  return true
 }
 
 export async function uninstallDataPack(packId: string): Promise<boolean> {

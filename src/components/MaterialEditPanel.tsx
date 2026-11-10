@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type {
+  FlowDirection,
   MaterialEditPatch,
   MaterialEditState,
   MaterialSlotInfo,
@@ -7,6 +8,15 @@ import type {
   PbrMapSlot,
   TextureOption
 } from '../services/modelMaterialEdit'
+
+const FLOW_DIRECTION_OPTIONS: Array<{ value: FlowDirection; label: string }> = [
+  { value: 'up', label: '向上（+Y）' },
+  { value: 'down', label: '向下（−Y）' },
+  { value: 'right', label: '向右（+X）' },
+  { value: 'left', label: '向左（−X）' },
+  { value: 'forward', label: '向前（+Z）' },
+  { value: 'backward', label: '向后（−Z）' }
+]
 
 interface MaterialEditPanelProps {
   materialEditMode: boolean
@@ -311,6 +321,178 @@ export default function MaterialEditPanel({
           {materialState.kind === 'other' && (
             <div className="material-edit-note">该材质类型仅支持颜色和透明度调整</div>
           )}
+
+          <div className="material-edit-effects">
+            <label className="material-edit-section-title material-edit-pbr-toggle">
+              <input
+                type="checkbox"
+                checked={materialState.glass}
+                disabled={!materialEditMode && !embedded}
+                onChange={(e) => onMaterialChange({ glass: e.target.checked })}
+              />
+              <span>半透明玻璃</span>
+            </label>
+            {materialState.glass && (
+              <>
+                <SettingRow label="玻璃颜色" value={materialState.glassColor}>
+                  <div className="preview-color-row">
+                    <input
+                      type="color"
+                      className="preview-color-input"
+                      value={materialState.glassColor}
+                      disabled={!materialEditMode && !embedded}
+                      onChange={(e) => onMaterialChange({ glassColor: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      className="preview-color-text"
+                      value={materialState.glassColor}
+                      spellCheck={false}
+                      disabled={!materialEditMode && !embedded}
+                      onChange={(e) => onMaterialChange({ glassColor: e.target.value })}
+                    />
+                  </div>
+                </SettingRow>
+                <SettingRow
+                  label="玻璃透明度"
+                  value={`${Math.round(materialState.glassOpacity * 100)}%`}
+                >
+                  <input
+                    type="range"
+                    className="preview-setting-slider"
+                    min={0.05}
+                    max={1}
+                    step={0.01}
+                    value={materialState.glassOpacity}
+                    disabled={!materialEditMode && !embedded}
+                    onChange={(e) =>
+                      onMaterialChange({ glassOpacity: Number(e.target.value) })
+                    }
+                  />
+                </SettingRow>
+                <SettingRow
+                  label="玻璃厚度"
+                  value={materialState.glassThickness.toFixed(2)}
+                >
+                  <input
+                    type="range"
+                    className="preview-setting-slider"
+                    min={0.05}
+                    max={4}
+                    step={0.05}
+                    value={materialState.glassThickness}
+                    disabled={!materialEditMode && !embedded}
+                    onChange={(e) =>
+                      onMaterialChange({ glassThickness: Number(e.target.value) })
+                    }
+                  />
+                </SettingRow>
+                <SettingRow
+                  label="折射率"
+                  value={materialState.glassIor.toFixed(2)}
+                >
+                  <input
+                    type="range"
+                    className="preview-setting-slider"
+                    min={1}
+                    max={2.5}
+                    step={0.01}
+                    value={materialState.glassIor}
+                    disabled={!materialEditMode && !embedded}
+                    onChange={(e) => onMaterialChange({ glassIor: Number(e.target.value) })}
+                  />
+                </SettingRow>
+              </>
+            )}
+
+            <label className="material-edit-section-title material-edit-pbr-toggle">
+              <input
+                type="checkbox"
+                checked={materialState.flow}
+                disabled={!materialEditMode && !embedded}
+                onChange={(e) => onMaterialChange({ flow: e.target.checked })}
+              />
+              <span>电路流动</span>
+            </label>
+            {materialState.flow && (
+              <>
+                <SettingRow label="流动颜色" value={materialState.flowColor}>
+                  <div className="preview-color-row">
+                    <input
+                      type="color"
+                      className="preview-color-input"
+                      value={materialState.flowColor}
+                      disabled={!materialEditMode && !embedded}
+                      onChange={(e) => onMaterialChange({ flowColor: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      className="preview-color-text"
+                      value={materialState.flowColor}
+                      spellCheck={false}
+                      disabled={!materialEditMode && !embedded}
+                      onChange={(e) => onMaterialChange({ flowColor: e.target.value })}
+                    />
+                  </div>
+                </SettingRow>
+                <SettingRow
+                  label="流动方向"
+                  value={
+                    FLOW_DIRECTION_OPTIONS.find(
+                      (item) => item.value === materialState.flowDirection
+                    )?.label ?? '向上（+Y）'
+                  }
+                >
+                  <select
+                    className="material-edit-texture-select"
+                    value={materialState.flowDirection}
+                    disabled={!materialEditMode && !embedded}
+                    onChange={(e) =>
+                      onMaterialChange({ flowDirection: e.target.value as FlowDirection })
+                    }
+                  >
+                    {FLOW_DIRECTION_OPTIONS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </SettingRow>
+                <SettingRow
+                  label="流动速度"
+                  value={`${materialState.flowSpeed.toFixed(2)}x`}
+                >
+                  <input
+                    type="range"
+                    className="preview-setting-slider"
+                    min={0.05}
+                    max={5}
+                    step={0.05}
+                    value={materialState.flowSpeed}
+                    disabled={!materialEditMode && !embedded}
+                    onChange={(e) => onMaterialChange({ flowSpeed: Number(e.target.value) })}
+                  />
+                </SettingRow>
+                <SettingRow
+                  label="流动强度"
+                  value={materialState.flowIntensity.toFixed(2)}
+                >
+                  <input
+                    type="range"
+                    className="preview-setting-slider"
+                    min={0.1}
+                    max={5}
+                    step={0.05}
+                    value={materialState.flowIntensity}
+                    disabled={!materialEditMode && !embedded}
+                    onChange={(e) =>
+                      onMaterialChange({ flowIntensity: Number(e.target.value) })
+                    }
+                  />
+                </SettingRow>
+              </>
+            )}
+          </div>
 
           <button
             type="button"

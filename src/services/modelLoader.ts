@@ -499,7 +499,6 @@ async function loadSTL(buffer: ArrayBuffer, upAxis: StlUpAxis = DEFAULT_STL_UP_A
   return group
 }
 
-const THUMBNAIL_MAX_TRIANGLES = 12000
 export const PREVIEW_MAX_TRIANGLES = 500_000
 /** 超过此面数时询问用户是否减面，默认保留原始精度 */
 export const PREVIEW_SIMPLIFY_PROMPT_TRIANGLES = 1_000_000
@@ -542,30 +541,78 @@ export function decimateGeometry(
   }
 
   const position = geometry.attributes.position
-  if (!position) return geometry
+  if (!(position instanceof THREE.BufferAttribute)) return geometry
 
   const totalTris = Math.floor(position.count / 3)
   if (totalTris <= maxTriangles) return geometry
 
   const step = Math.ceil(totalTris / maxTriangles)
-  const estimatedVerts = Math.ceil(totalTris / step) * 3
-  const array = new Float32Array(estimatedVerts * 3)
-  let write = 0
-
+  const keptTriangles: number[] = []
   for (let tri = 0; tri < totalTris; tri += step) {
-    const baseVertex = tri * 3
-    for (let v = 0; v < 3; v++) {
-      const idx = (baseVertex + v) * 3
-      array[write++] = position.array[idx]
-      array[write++] = position.array[idx + 1]
-      array[write++] = position.array[idx + 2]
+    keptTriangles.push(tri)
+  }
+  const keptVertices = keptTriangles.length * 3
+
+  const result = new THREE.BufferGeometry()
+
+  // 逐个属性按保留的三角形重新拷贝：只保留 position 会丢掉 UV/法线，
+  // 带贴图的材质会退化成单一像素色。
+  for (const name of Object.keys(geometry.attributes)) {
+    const attribute = geometry.attributes[name]
+    if (!(attribute instanceof THREE.BufferAttribute)) continue
+    const itemSize = attribute.itemSize
+    const source = attribute.array as unknown as { [index: number]: number }
+    const TypedArrayCtor = attribute.array
+      .constructor as unknown as new (length: number) => { [index: number]: number }
+    const target = new TypedArrayCtor(keptVertices * itemSize)
+    let write = 0
+    for (const tri of keptTriangles) {
+      const start = tri * 3 * itemSize
+      for (let offset = 0; offset < 3 * itemSize; offset += 1) {
+        target[write] = source[start + offset]
+        write += 1
+      }
     }
+    result.setAttribute(
+      name,
+      new THREE.BufferAttribute(
+        target as unknown as THREE.TypedArray,
+        itemSize,
+        attribute.normalized
+      )
+    )
   }
 
-  const trimmed = array.subarray(0, write)
-  const result = new THREE.BufferGeometry()
-  result.setAttribute('position', new THREE.BufferAttribute(trimmed, 3))
-  result.computeVertexNormals()
+  // 多材质网格（material 为数组）必须依赖 geometry.groups 才会被绘制。
+  // 减面后若丢失 groups，WebGLRenderer 不会产生任何 draw call，
+  // 缩略图就只剩背景色（模型看起来“没有缩略图”）。
+  if (geometry.groups.length > 0) {
+    const materialIndexAt = (triangle: number): number => {
+      const vertexStart = triangle * 3
+      for (const group of geometry.groups) {
+        if (vertexStart >= group.start && vertexStart < group.start + group.count) {
+          return group.materialIndex ?? 0
+        }
+      }
+      return geometry.groups[0].materialIndex ?? 0
+    }
+
+    let currentMaterialIndex = -1
+    keptTriangles.forEach((triangle, index) => {
+      const materialIndex = materialIndexAt(triangle)
+      if (materialIndex !== currentMaterialIndex) {
+        result.addGroup(index * 3, 3, materialIndex)
+        currentMaterialIndex = materialIndex
+      } else {
+        const groups = result.groups
+        groups[groups.length - 1].count += 3
+      }
+    })
+  }
+
+  if (!result.attributes.normal) {
+    result.computeVertexNormals()
+  }
   result.computeBoundingBox()
   result.computeBoundingSphere()
   return result
@@ -675,32 +722,6 @@ export async function resolvePreviewOptimization(
     object.updateMatrixWorld(true)
   }
   return optimization
-}
-
-export function decimateGeometryForThumbnail(
-  geometry: THREE.BufferGeometry,
-  maxTriangles = THUMBNAIL_MAX_TRIANGLES
-): THREE.BufferGeometry {
-  return decimateGeometry(geometry, maxTriangles)
-}
-
-export function simplifyMeshForThumbnail(object: THREE.Object3D): THREE.Object3D {
-  const meshes: THREE.Mesh[] = []
-  object.traverse((child) => {
-    if (child instanceof THREE.Mesh && child.geometry) {
-      meshes.push(child)
-    }
-  })
-  if (meshes.length === 0) return object
-
-  for (const mesh of meshes) {
-    const decimated = decimateGeometryForThumbnail(mesh.geometry)
-    if (decimated !== mesh.geometry) {
-      mesh.geometry.dispose()
-      mesh.geometry = decimated
-    }
-  }
-  return object
 }
 
 export function computeModelStats(object: THREE.Object3D): ModelStats {
@@ -875,6 +896,7 @@ export function applyPreviewLighting(
 ): void {
   objects.ambientLight.intensity = settings.ambientIntensity
   objects.keyLight.intensity = settings.keyLightIntensity
+  objects.keyLight.color.set(settings.keyLightColor)
 
   const keyPos = lightPositionFromAngles(settings.lightAzimuth, settings.lightElevation)
   objects.keyLight.position.copy(keyPos)

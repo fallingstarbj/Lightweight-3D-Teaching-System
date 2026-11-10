@@ -19,6 +19,7 @@ interface ToolbarProps {
   onCreateDataPack?: () => void
   creatingDataPack?: boolean
   onManagePacks: () => void
+  managingPacks: boolean
   hasContent: boolean
   theme: Theme
   onThemeChange: (theme: Theme) => void
@@ -48,6 +49,7 @@ export default function Toolbar({
   onCreateDataPack,
   creatingDataPack = false,
   onManagePacks,
+  managingPacks,
   hasContent,
   theme,
   onThemeChange,
@@ -129,7 +131,7 @@ export default function Toolbar({
             </button>
           )}
           <button
-            className={`toolbar-btn ${!hasContent ? 'active' : ''}`}
+            className={`toolbar-btn ${managingPacks ? 'active' : ''}`}
             onClick={onManagePacks}
           >
             管理数据包

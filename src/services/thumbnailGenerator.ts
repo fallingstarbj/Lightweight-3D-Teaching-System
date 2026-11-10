@@ -11,7 +11,6 @@ import {
   setupDefaultMaterials,
   createPreviewScene,
   frameCameraToBox,
-  simplifyMeshForThumbnail,
   THUMBNAIL_MODEL_TARGET_SIZE,
   THUMBNAIL_CAMERA_PADDING,
   THUMBNAIL_POSITION_NUDGE
@@ -90,6 +89,7 @@ export function invalidateAppearanceSuffixCache(libraryId?: string): void {
 
 const queue: Array<{
   filePath: string
+  filePathKey: string
   mtimeMs: number
   settingsKey: string
   formatExtension?: string
@@ -99,9 +99,15 @@ const queue: Array<{
 
 let thumbnailGenerationEpoch = 0
 let activeCount = 0
+/** 进入 3D 预览时暂停缩略图生成，避免与 3D 视图争抢 WebGL/CPU */
+let generationPaused = false
 
 function isThumbnailGenerationCancelled(epoch: number): boolean {
   return epoch !== thumbnailGenerationEpoch
+}
+
+function normalizeFilePathKey(filePath: string): string {
+  return filePath.replace(/\\/g, '/').toLowerCase()
 }
 
 export async function getOrGenerateThumbnail(
@@ -140,8 +146,18 @@ export async function getOrGenerateThumbnail(
   }
 
   return new Promise((resolve) => {
+    const filePathKey = normalizeFilePathKey(filePath)
+    // 同一文件的旧请求（例如拖动渲染参数时产生的过期缓存键）直接作废，
+    // 只保留最新一次请求，避免队列堆积大量无效生成任务。
+    for (let index = queue.length - 1; index >= 0; index -= 1) {
+      if (queue[index].filePathKey === filePathKey) {
+        const [stale] = queue.splice(index, 1)
+        stale.resolve(null)
+      }
+    }
     queue.push({
       filePath,
+      filePathKey,
       mtimeMs,
       settingsKey: effectiveSettingsKey,
       formatExtension,
@@ -150,6 +166,18 @@ export async function getOrGenerateThumbnail(
     })
     processQueue()
   })
+}
+
+/** 进入 3D 预览时暂停后台缩略图生成 */
+export function pauseThumbnailGeneration(): void {
+  generationPaused = true
+}
+
+/** 退出 3D 预览后恢复后台缩略图生成 */
+export function resumeThumbnailGeneration(): void {
+  if (!generationPaused) return
+  generationPaused = false
+  processQueue()
 }
 
 async function processThumbnailItem(item: (typeof queue)[number]): Promise<void> {
@@ -167,12 +195,19 @@ async function processThumbnailItem(item: (typeof queue)[number]): Promise<void>
     }
 
     if (dataUrl) {
-      const savedUrl = await window.electronAPI.saveThumbnail(
-        item.filePath,
-        item.mtimeMs,
-        dataUrl,
-        item.settingsKey
-      )
+      // 缓存写入失败（目录不可写等）不应丢掉已生成好的缩略图，
+      // 否则整屏都退化成占位图标。此时直接用内存中的 dataUrl 显示。
+      let savedUrl: string | null = null
+      try {
+        savedUrl = await window.electronAPI.saveThumbnail(
+          item.filePath,
+          item.mtimeMs,
+          dataUrl,
+          item.settingsKey
+        )
+      } catch {
+        savedUrl = null
+      }
       failedThumbnailKeys.delete(failureKey)
       item.resolve(isThumbnailGenerationCancelled(epoch) ? null : savedUrl || dataUrl)
       return
@@ -188,6 +223,7 @@ async function processThumbnailItem(item: (typeof queue)[number]): Promise<void>
 }
 
 function processQueue(): void {
+  if (generationPaused) return
   while (activeCount < MAX_CONCURRENT_THUMBNAILS && queue.length > 0) {
     const item = queue.shift()!
     activeCount++
@@ -246,7 +282,11 @@ export async function generateModelThumbnail(
   canvas.width = THUMB_SIZE
   canvas.height = THUMB_SIZE
 
-  const { scene, camera } = createPreviewScene(getStoredPreviewSettings())
+  const {
+    scene,
+    camera,
+    renderer: sceneRenderer
+  } = createPreviewScene(getStoredPreviewSettings())
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -258,16 +298,16 @@ export async function generateModelThumbnail(
   renderer.setSize(THUMB_SIZE, THUMB_SIZE, false)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.2
+  renderer.toneMappingExposure = getStoredPreviewSettings().exposure
 
   try {
-    let object = await loadModelFromPath(filePath, formatExtension, {
-      lightweight: true,
+    const object = await loadModelFromPath(filePath, formatExtension, {
       upAxis: getStoredPreviewSettings().stlUpAxis
     })
     if (isThumbnailGenerationCancelled(epoch)) return null
 
-    object = simplifyMeshForThumbnail(object)
+    // 缩略图不做减面：按固定步长抽掉三角形会在网格上留下大洞
+    // （透过洞看到模型内部/背面，呈黑色三角块），缩略图必须保持完整外观。
 
     const resolvedLibraryId = libraryId ?? getLibraryIdFromModelPath(filePath)
     if (resolvedLibraryId) {
@@ -275,7 +315,6 @@ export async function generateModelThumbnail(
     }
 
     setupDefaultMaterials(object)
-    // 缩略图不阻塞等待贴图；缺贴图时用默认材质也能出图
 
     const { root, box } = centerAndScaleObject(object, THUMBNAIL_MODEL_TARGET_SIZE)
     const nudgeBase = Math.max(...box.getSize(new THREE.Vector3()).toArray(), 0.001)
@@ -289,7 +328,13 @@ export async function generateModelThumbnail(
     renderer.render(scene, camera)
     return canvas.toDataURL('image/jpeg', THUMB_JPEG_QUALITY)
   } finally {
+    // dispose() 不会释放底层 WebGL 上下文；每次生成都新建 renderer，
+    // 若不主动丢弃上下文会耗尽浏览器 WebGL 上下文配额，导致后续缩略图卡死。
+    renderer.forceContextLoss()
     renderer.dispose()
+    // createPreviewScene 内部也会创建一个 renderer，同样需要释放上下文
+    sceneRenderer.forceContextLoss()
+    sceneRenderer.dispose()
     scene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.geometry?.dispose()

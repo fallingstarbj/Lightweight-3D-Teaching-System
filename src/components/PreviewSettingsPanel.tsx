@@ -4,6 +4,14 @@ import type { PreviewSettings } from '../utils/previewSettings'
 import {
   DEFAULT_PREVIEW_SETTINGS,
   MAX_KEY_LIGHT_INTENSITY,
+  MAX_COLOR_TEMPERATURE,
+  MAX_CONTRAST,
+  MAX_EXPOSURE,
+  MAX_SATURATION,
+  MIN_COLOR_TEMPERATURE,
+  MIN_CONTRAST,
+  MIN_EXPOSURE,
+  MIN_SATURATION,
   normalizeHexColor
 } from '../utils/previewSettings'
 import { STL_UP_AXIS_OPTIONS, type StlUpAxis } from '../utils/stlOrientation'
@@ -186,7 +194,9 @@ export default function PreviewSettingsPanel({
             </button>
           )}
         </div>
-        <p className="preview-setting-hint">支持等距圆柱投影全景图（JPG / PNG / WebP）。</p>
+        <p className="preview-setting-hint">
+          支持等距圆柱投影全景图（JPG / PNG / WebP / HDR / EXR）；HDR 同时作为环境光照使用。
+        </p>
         {panoramaError && <p className="preview-setting-error">{panoramaError}</p>}
       </SettingRow>
 
@@ -262,6 +272,100 @@ export default function PreviewSettingsPanel({
           step={0.05}
           value={settings.keyLightIntensity}
           onChange={(e) => onChange({ keyLightIntensity: Number(e.target.value) })}
+        />
+      </SettingRow>
+
+      <SettingRow label="主光颜色" value={settings.keyLightColor}>
+        <div className="preview-color-row">
+          <input
+            type="color"
+            className="preview-color-input"
+            value={settings.keyLightColor}
+            onChange={(e) => onChange({ keyLightColor: e.target.value })}
+          />
+          <input
+            type="text"
+            className="preview-color-text"
+            value={settings.keyLightColor}
+            spellCheck={false}
+            onChange={(e) => onChange({ keyLightColor: e.target.value })}
+            onBlur={(e) =>
+              onChange({
+                keyLightColor: normalizeHexColor(
+                  e.target.value,
+                  DEFAULT_PREVIEW_SETTINGS.keyLightColor
+                )
+              })
+            }
+          />
+        </div>
+      </SettingRow>
+
+      <div className="preview-settings-group-title">画面调整</div>
+
+      <SettingRow
+        label="整体曝光"
+        value={settings.exposure.toFixed(2)}
+      >
+        <input
+          type="range"
+          className="preview-setting-slider"
+          min={MIN_EXPOSURE}
+          max={MAX_EXPOSURE}
+          step={0.05}
+          value={settings.exposure}
+          onChange={(e) => onChange({ exposure: Number(e.target.value) })}
+        />
+      </SettingRow>
+
+      <SettingRow
+        label="色温"
+        value={
+          settings.colorTemperature === 0
+            ? '中性'
+            : settings.colorTemperature > 0
+              ? `暖 +${Math.round(settings.colorTemperature)}`
+              : `冷 ${Math.round(settings.colorTemperature)}`
+        }
+      >
+        <input
+          type="range"
+          className="preview-setting-slider"
+          min={MIN_COLOR_TEMPERATURE}
+          max={MAX_COLOR_TEMPERATURE}
+          step={1}
+          value={settings.colorTemperature}
+          onChange={(e) => onChange({ colorTemperature: Number(e.target.value) })}
+        />
+      </SettingRow>
+
+      <SettingRow
+        label="对比度"
+        value={settings.contrast.toFixed(2)}
+      >
+        <input
+          type="range"
+          className="preview-setting-slider"
+          min={MIN_CONTRAST}
+          max={MAX_CONTRAST}
+          step={0.01}
+          value={settings.contrast}
+          onChange={(e) => onChange({ contrast: Number(e.target.value) })}
+        />
+      </SettingRow>
+
+      <SettingRow
+        label="饱和度"
+        value={settings.saturation.toFixed(2)}
+      >
+        <input
+          type="range"
+          className="preview-setting-slider"
+          min={MIN_SATURATION}
+          max={MAX_SATURATION}
+          step={0.01}
+          value={settings.saturation}
+          onChange={(e) => onChange({ saturation: Number(e.target.value) })}
         />
       </SettingRow>
 
